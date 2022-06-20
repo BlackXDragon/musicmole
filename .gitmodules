@@ -4,3 +4,6 @@
 [submodule "external/seriallib"]
 	path = external/seriallib
 	url = https://github.com/imabot2/serialib.git
+[submodule "external/dlib"]
+	path = external/dlib
+	url = https://github.com/BlackXDragon/dlib.git
