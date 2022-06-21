@@ -1,0 +1,5 @@
+#include "PeriodicTicker.hpp"
+
+uint8_t N_TICKERS = 1;
+
+const char* TICKER_NAMES[] = { "Periodic" };
