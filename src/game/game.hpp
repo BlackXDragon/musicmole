@@ -12,6 +12,8 @@
 #include <random>
 #include <functional>
 #include <thread>
+#include <mutex>
+#include <SFML/Graphics.hpp>
 
 class Game {
 public:
@@ -71,12 +73,15 @@ public:
 	}
 
 	void whack(int x, int y) {
+		x--; y--;
 		if (board[x][y]) {
+			trt_mutex.lock();
+			terminate_remove_thread[x][y] = true;
+			trt_mutex.unlock();
 			board[x][y] = false;
 			n_whacked++;
 			whack_times.push_back(std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - mole_start_times[x][y]));
 			n_total++;
-			terminate_remove_thread[x][y] = true;
 		}
 	}
 
@@ -134,6 +139,38 @@ public:
 		this->game_over_callback = f;
 	}
 
+	void render(sf::RenderWindow *window) {
+		window->clear(sf::Color(0xA67C5200)); // Fill screen with bg color
+
+		auto winSize = window->getSize();
+		sf::CircleShape hole(winSize.y / 9 - 20);
+		hole.setScale(2, 1);
+		auto holeSize = hole.getLocalBounds();
+		
+		// Draw the holes (with moles if there's a mole in the position)
+		for (int i = 0; i < x; i++) {
+			for (int j = 0; j < y; j++) {
+				if (board[i][j]) {
+					hole.setFillColor(sf::Color::Green);
+				} else {
+					hole.setFillColor(sf::Color::Black);
+				}
+				hole.setPosition(sf::Vector2f(i * winSize.x/3 + (winSize.x/3 - holeSize.width * 2)/2, j * winSize.y/3 + (winSize.y/3 - holeSize.height)/2));
+
+				window->draw(hole);
+			}
+		}
+	}
+
+	void stop() {
+		for (int i = 0; i < x; i++)
+			for (int j = 0; j < y; j++) {
+				trt_mutex.lock();
+				terminate_remove_thread[i][j] = true;
+				trt_mutex.unlock();
+			}
+	}
+
 private:
 	int x, y;
 	std::vector<std::vector<bool>> board;
@@ -145,14 +182,18 @@ private:
 	std::function<void()> game_over_callback;
 	std::vector<std::thread> m_threads;
 	std::vector<std::vector<bool>> terminate_remove_thread;
+	std::mutex trt_mutex = std::mutex();
 	
 	void remove_mole(int x, int y) {
 		auto start = std::chrono::high_resolution_clock::now();
 		while (std::chrono::duration_cast<std::chrono::seconds>(std::chrono::high_resolution_clock::now() - start).count() < 7) {
+			trt_mutex.lock();
 			if (terminate_remove_thread[x][y]) {
 				terminate_remove_thread[x][y] = false;
+				trt_mutex.unlock();
 				return;
 			}
+			trt_mutex.unlock();
 		}
 		board[x][y] = false;
 		n_missed++;
