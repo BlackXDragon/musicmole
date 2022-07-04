@@ -1,1 +1,3 @@
 add_executable(PeriodicTickerTest PeriodicTickerTest.cpp)
+
+add_executable(ConsoleGameTest ConsoleGameTest.cpp)
