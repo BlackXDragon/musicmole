@@ -74,6 +74,9 @@ public:
 
 	void whack(int x, int y) {
 		x--; y--;
+		if (x == -1 && y == -1) { // Glove controller, no input
+			return;
+		}
 		if (board[x][y]) {
 			trt_mutex.lock();
 			terminate_remove_thread[x][y] = true;
