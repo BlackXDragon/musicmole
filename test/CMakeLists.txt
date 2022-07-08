@@ -16,3 +16,8 @@ add_custom_command(TARGET gestureModelTest COMMAND ${CMAKE_COMMAND} -E copy_dire
 
 makeDlibExec(liveGestureTest liveGestureTest.cpp)
 target_link_libraries(liveGestureTest seriallib)
+
+makeDlibExec(GestureControllerTest GestureControllerTest.cpp)
+target_link_libraries(GestureControllerTest sfml-window sfml-graphics sfml-system seriallib)
+target_include_directories(GestureControllerTest PRIVATE external/SFML/include)
+add_custom_command(TARGET GestureControllerTest POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_if_different ${PROJECT_SOURCE_DIR}/test/Roboto-Italic.ttf $<TARGET_FILE_DIR:GestureControllerTest>)
