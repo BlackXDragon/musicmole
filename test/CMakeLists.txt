@@ -1,2 +1,18 @@
 add_executable(libfftwTest libfftwTest.cpp)
 addlibfftw(libfftwTest)
+
+set(MUSIC_FILE "The Chainsmokers & Coldplay - Something Just Like This (Lyric).mp3")
+
+add_executable(beatDetectionTest beatDetectionTest.cpp)
+target_compile_definitions(beatDetectionTest PUBLIC MUSIC_FILE="${MUSIC_FILE}")
+addlibfftw(beatDetectionTest)
+target_link_libraries(beatDetectionTest sfml-audio sfml-window sfml-graphics sfml-system)
+target_include_directories(beatDetectionTest PRIVATE external/SFML/include)
+add_custom_command(TARGET beatDetectionTest POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_if_different ${PROJECT_SOURCE_DIR}/test/${MUSIC_FILE} $<TARGET_FILE_DIR:beatDetectionTest>)
+if (WIN32)
+	if(CMAKE_SIZEOF_VOID_P EQUAL 8)
+		add_custom_command(TARGET beatDetectionTest POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_if_different ${PROJECT_SOURCE_DIR}/external/SFML/extlibs/bin/x64/openal32.dll $<TARGET_FILE_DIR:beatDetectionTest>)
+	elseif(CMAKE_SIZEOF_VOID_P EQUAL 4)
+		add_custom_command(TARGET beatDetectionTest POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_if_different ${PROJECT_SOURCE_DIR}/external/SFML/extlibs/bin/x86/openal32.dll $<TARGET_FILE_DIR:beatDetectionTest>)
+	endif()
+endif()

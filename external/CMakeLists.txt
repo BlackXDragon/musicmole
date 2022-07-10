@@ -1,6 +1,7 @@
 set(BUILD_SHARED_LIBS FALSE)
 
 add_subdirectory(SFML)
+set_target_properties(sfml-audio PROPERTIES CXX_STANDARD 98 CXX_STANDARD_REQUIRED YES CXX_EXTENSIONS NO)
 
 if (UNIX)
 	message(FATAL_ERROR "Sorry, beat detection has not been developed for UNIX systems yet.")
