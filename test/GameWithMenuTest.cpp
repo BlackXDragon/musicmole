@@ -1,21 +1,23 @@
 #include "../src/game/game.hpp"
 #include "../src/controllers/NumericalController.hpp"
 #include "../src/ticker/PeriodicTicker.hpp"
+#include "../src/ticker/MusicalTicker.hpp"
 #include "../src/UI/menu.hpp"
 
 int MAX_FPS = 30;
 
 bool closeMenu = false;
 
-int controller_type = 0, ticker_type = 0;
-std::string controller_param1, controller_param2, ticker_param;
+int controller_type = 0;
+std::string controller_param1, controller_param2;
 
-void startCallback(int c, std::string c1, std::string c2, int t, std::string t1) {
+std::variant<int, MusicalTickerParams> ticker_params;
+
+void startCallback(int c, std::string c1, std::string c2, std::variant<int, MusicalTickerParams> t) {
 	controller_type = c;
 	controller_param1 = c1;
 	controller_param2 = c2;
-	ticker_type = t;
-	ticker_param = t1;
+	ticker_params = t;
 	closeMenu = true;
 }
 
@@ -75,15 +77,6 @@ int main() {
 
 	Game game(3, 3);
 	game.set_game_over_callback(&game_over_callback);
-	
-	std::unique_ptr<BaseController<int, int>> controller;
-	std::unique_ptr<BaseTicker> ticker;
-
-	if (controller_type == 0)
-		controller = std::make_unique<NumericalController>(std::bind(&Game::whack, &game, std::placeholders::_1, std::placeholders::_2));
-
-	if (ticker_type == 0)
-		ticker = std::make_unique<PeriodicTicker>(atoi(ticker_param.c_str()) * 1000, std::bind(&Game::make_mole, &game));
 
 	sf::Font font;
 	font.loadFromFile("Roboto-Italic.ttf");
@@ -108,19 +101,39 @@ int main() {
 	missed.setPosition(sf::Vector2f(windowSize.x - textBounds.width - 10, 2*textBounds.height));
 	textBounds = total.getLocalBounds();
 	total.setPosition(sf::Vector2f(windowSize.x - textBounds.width - 10, 3.5*textBounds.height));
+	
+	std::unique_ptr<BaseController<int, int>> controller;
+	std::unique_ptr<BaseTicker> ticker;
 
-	ticker->start();
+	if (controller_type == 0)
+		controller = std::make_unique<NumericalController>(std::bind(&Game::whack, &game, std::placeholders::_1, std::placeholders::_2));
+
+	if (ticker_params.index() == 0)
+		ticker = std::make_unique<PeriodicTicker>(std::get<int>(ticker_params) * 1000, std::bind(&Game::make_mole, &game));
+	else if (ticker_params.index() == 1) {
+		MusicalTickerParams p = std::get<MusicalTickerParams>(ticker_params);
+		ticker = std::make_unique<MusicalTicker>(p.filename, std::bind(&Game::make_mole, &game), p.analysisPeriod, p.lowFreq, p.highFreq, p.threshold, p.ignorePeriod);
+	}
+
+	fftw_cleanup();
+
+	if (ticker_params.index() == 1)
+		dynamic_cast<MusicalTicker&>(*ticker).start();
+	else
+		ticker->start();
 
 	try {
-		while (window.isOpen() && !end_game) {
+		while (window.isOpen() && !end_game && ticker->isRunning()) {
 			sf::Event event;
 			while (window.pollEvent(event)) {
 				controller->run(event);
 				if (event.type == sf::Event::KeyPressed)
 					if (event.key.code == sf::Keyboard::Escape) {
 						end_game = true;
-						ticker->stop();
-						// delete ticker;
+						if (ticker_params.index() == 1)
+							dynamic_cast<MusicalTicker&>(*ticker).stop();
+						else
+							ticker->stop();
 						game.stop();
 						break;
 					}
@@ -160,6 +173,11 @@ int main() {
 	} catch (std::exception e) {
 		std::cerr << "Error: " << e.what() << std::endl;
 		exit(1);
+	}
+
+	if (!end_game) {
+		end_game = true;
+		game.stop();
 	}
 
 	try {

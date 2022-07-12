@@ -57,6 +57,7 @@ if (WIN32)
 endif()
 
 add_executable(GameWithMenuTest GameWithMenuTest.cpp)
-target_link_libraries(GameWithMenuTest SFGUI sfml-window sfml-graphics sfml-system)
+target_link_libraries(GameWithMenuTest SFGUI sfml-audio sfml-window sfml-graphics sfml-system)
 target_include_directories(GameWithMenuTest PRIVATE external/SFML/include)
+addlibfftw(GameWithMenuTest)
 add_custom_command(TARGET GameWithMenuTest POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_if_different ${PROJECT_SOURCE_DIR}/test/Roboto-Italic.ttf $<TARGET_FILE_DIR:GameWithMenuTest>)
