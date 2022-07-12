@@ -3,10 +3,28 @@
 
 #include "../serial/availableSerial.hpp"
 #include "../ticker/PeriodicTicker.hpp"
+#include "../ticker/MusicalTicker.hpp"
 #include "../controllers/NumericalController.hpp"
 #include <SFGUI/SFGUI.hpp>
 #include <SFGUI/Widgets.hpp>
 #include <SFML/Graphics.hpp>
+#include <variant>
+#include <filesystem>
+
+namespace fs = std::filesystem;
+
+#ifdef _WIN32
+	std::string musicpath = std::string(getenv("HOMEDRIVE")) + std::string(getenv("HOMEPATH")) + "\\Documents\\musicmole\\Music";
+#endif
+#ifdef linux
+	std::string musicpath = std::string(getenv("HOME")) + "/musicmole/Music";
+#endif
+
+typedef struct {
+	std::string filename;
+	double lowFreq, highFreq, threshold;
+	std::chrono::microseconds analysisPeriod, ignorePeriod;
+} MusicalTickerParams;
 
 class MenuWindow {
 public:
@@ -149,7 +167,7 @@ public:
 		box->Pack(tickerBox);
 
 		periodicTickerBox = sfg::Box::Create(sfg::Box::Orientation::HORIZONTAL, 5.f);
-		musicalTickerBox = sfg::Box::Create(sfg::Box::Orientation::HORIZONTAL, 5.f);
+		musicalTickerBox = sfg::Box::Create(sfg::Box::Orientation::VERTICAL, 5.f);
 
 		auto tickerPeriodLabel = sfg::Label::Create("Ticker Period (s):");
 		periodicTickerBox->Pack(tickerPeriodLabel);
@@ -157,8 +175,70 @@ public:
 		tickerPeriodSpinButton = sfg::SpinButton::Create(1, 15, 1);
 		periodicTickerBox->Pack(tickerPeriodSpinButton);
 
-		auto tickerMusicLabel = sfg::Label::Create("Ticker Music (not yet implemented)");
-		musicalTickerBox->Pack(tickerMusicLabel);
+		auto tickerMusicFileBox = sfg::Box::Create(sfg::Box::Orientation::HORIZONTAL, 5.f);
+
+		auto tickerMusicFileLabel = sfg::Label::Create("Music:");
+		tickerMusicFileCombo = sfg::ComboBox::Create();
+		auto tickerMusicFileButton = sfg::Button::Create("Refresh");
+
+		tickerMusicFileButton->GetSignal(sfg::Button::OnLeftClick).Connect(
+			std::bind(&MenuWindow::refreshMusic, this, tickerMusicFileCombo)
+		);
+
+		tickerMusicFileBox->Pack(tickerMusicFileLabel);
+		tickerMusicFileBox->Pack(tickerMusicFileCombo);
+		tickerMusicFileBox->Pack(tickerMusicFileButton);
+		musicalTickerBox->Pack(tickerMusicFileBox);
+
+		auto tickerMusicFreqBox = sfg::Box::Create(sfg::Box::Orientation::HORIZONTAL, 5.f);
+
+		auto tickerMusicFreqLabel = sfg::Label::Create("Beat frequency range:");
+		tickerLowFreqSpinButton = sfg::SpinButton::Create(20, 2000, 1);
+		auto tickerMusicFreqHyphen = sfg::Label::Create("-");
+		tickerHighFreqSpinButton = sfg::SpinButton::Create(100, 20000, 1);
+
+		tickerMusicFreqBox->Pack(tickerMusicFreqLabel);
+		tickerMusicFreqBox->Pack(tickerLowFreqSpinButton);
+		tickerMusicFreqBox->Pack(tickerMusicFreqHyphen);
+		tickerMusicFreqBox->Pack(tickerHighFreqSpinButton);
+		musicalTickerBox->Pack(tickerMusicFreqBox);
+
+		auto tickerMusicThresholdBox = sfg::Box::Create(sfg::Box::Orientation::HORIZONTAL, 5.f);
+
+		auto tickerMusicThresholdLabel = sfg::Label::Create("Beat threshold:");
+		tickerThresholdScale = sfg::Scale::Create(0, 1, 0.025);
+		tickerMusicThresholdValue = sfg::Label::Create("0");
+
+		box->GetSignal(sfg::Box::OnMouseMove).Connect(
+			std::bind(&MenuWindow::updateThresholdValue, this)
+		);
+
+		tickerMusicThresholdBox->Pack(tickerMusicThresholdLabel);
+		tickerMusicThresholdBox->Pack(tickerThresholdScale);
+		tickerMusicThresholdBox->Pack(tickerMusicThresholdValue);
+		musicalTickerBox->Pack(tickerMusicThresholdBox);
+
+		auto tickerMusicAnalysisBox = sfg::Box::Create(sfg::Box::Orientation::HORIZONTAL, 5.f);
+
+		auto tickerMusicAnalysisLabel = sfg::Label::Create("FFT Analysis period:");
+		tickerAnalysisSpinButton = sfg::SpinButton::Create(1, 1000, 1);
+		auto tickerMusicAnalysisMS = sfg::Label::Create("ms");
+
+		tickerMusicAnalysisBox->Pack(tickerMusicAnalysisLabel);
+		tickerMusicAnalysisBox->Pack(tickerAnalysisSpinButton);
+		tickerMusicAnalysisBox->Pack(tickerMusicAnalysisMS);
+		musicalTickerBox->Pack(tickerMusicAnalysisBox);
+
+		auto tickerMusicIgnoreBox = sfg::Box::Create(sfg::Box::Orientation::HORIZONTAL, 5.f);
+
+		auto tickerMusicIgnoreLabel = sfg::Label::Create("FFT Ignore period:");
+		tickerIgnoreSpinButton = sfg::SpinButton::Create(1, 1000, 1);
+		auto tickerMusicIgnoreMS = sfg::Label::Create("ms");
+
+		tickerMusicIgnoreBox->Pack(tickerMusicIgnoreLabel);
+		tickerMusicIgnoreBox->Pack(tickerIgnoreSpinButton);
+		tickerMusicIgnoreBox->Pack(tickerMusicIgnoreMS);
+		musicalTickerBox->Pack(tickerMusicIgnoreBox);
 
 		box->Pack(periodicTickerBox);
 		box->Pack(musicalTickerBox);
@@ -175,6 +255,7 @@ public:
 		onControllerDropdownChange();
 		tickerDropdown->SelectItem(0);
 		onTickerDropdownChange();
+		refreshMusic(tickerMusicFileCombo);
 	}
 
 	~MenuWindow() {}
@@ -186,6 +267,17 @@ public:
 		auto availableSerialPorts = SelectComPort();
 		for (auto& port : availableSerialPorts) {
 			combo->AppendItem(port);
+		}
+	}
+
+	void refreshMusic(sfg::ComboBox::Ptr combo) {
+		while (combo->GetItemCount() > 0) {
+			combo->RemoveItem(0);
+		}
+		if (!fs::is_directory(fs::path(musicpath)))
+			fs::create_directories(fs::path(musicpath));
+		for (auto& file : fs::directory_iterator(musicpath)) {
+			combo->AppendItem(std::string(file.path().filename().u8string()));
 		}
 	}
 	
@@ -233,22 +325,45 @@ public:
 		int c = this->controllerDropdown->GetSelectedItem();
 		int t = this->tickerDropdown->GetSelectedItem();
 		if (c == 0 && t == 0) {
-			char v[5] = "";
-			itoa(tickerPeriodSpinButton->GetValue(), v, 10);
-			startCallback(0, "", "", 0, std::string(v));
+			int v = tickerPeriodSpinButton->GetValue();
+			std::variant<int, MusicalTickerParams> tickerParam = v;
+			std::visit([this](auto &p){this->startCallback(0, "", "", p);}, tickerParam);
+		} else if (c == 0 && t == 1) {
+			MusicalTickerParams p = MusicalTickerParams{};
+			#ifdef _WIN32
+				p.filename = musicpath + "\\" + tickerMusicFileCombo->GetSelectedText();
+			#endif
+			#ifdef linux
+				p.filename = musicpath + "/" + tickerMusicFileCombo->GetSelectedText();
+			#endif
+			p.lowFreq = tickerLowFreqSpinButton->GetValue();
+			p.highFreq = tickerHighFreqSpinButton->GetValue();
+			p.threshold = tickerThresholdScale->GetValue();
+			p.analysisPeriod = std::chrono::milliseconds((int)tickerAnalysisSpinButton->GetValue());
+			p.ignorePeriod = std::chrono::milliseconds((int)tickerIgnoreSpinButton->GetValue());
+			std::variant<int, MusicalTickerParams> tickerParam = p;
+			std::visit([this](auto &p){this->startCallback(0, "", "", p);}, tickerParam);
 		} // Rest to be implemented
 	}
 
-	void setStartCallback(std::function<void(int, std::string, std::string, int, std::string)> startCallback) {
+	void setStartCallback(std::function<void(int, std::string, std::string, std::variant<int, MusicalTickerParams>)> startCallback) {
 		this->startCallback = startCallback;
+	}
+
+	void updateThresholdValue() {
+		char v[5];
+		snprintf(v, 5, "%.3f", this->tickerThresholdScale->GetValue());
+		this->tickerMusicThresholdValue->SetText(std::string(v));
 	}
 
 private:
 	sfg::Box::Ptr box, glovesBox, periodicTickerBox, musicalTickerBox;
-	sfg::ComboBox::Ptr serialComboLeft, serialComboRight, controllerDropdown, tickerDropdown;
+	sfg::ComboBox::Ptr serialComboLeft, serialComboRight, controllerDropdown, tickerDropdown, tickerMusicFileCombo;
 	sf::RectangleShape background;
-	sfg::SpinButton::Ptr tickerPeriodSpinButton;
-	std::function<void(int, std::string, std::string, int, std::string)> startCallback;
+	sfg::SpinButton::Ptr tickerPeriodSpinButton, tickerLowFreqSpinButton, tickerHighFreqSpinButton, tickerAnalysisSpinButton, tickerIgnoreSpinButton;
+	sfg::Scale::Ptr tickerThresholdScale;
+	sfg::Label::Ptr tickerMusicThresholdValue;
+	std::function<void(int, std::string, std::string, std::variant<int, MusicalTickerParams>)> startCallback;
 };
 
 #endif // MENU_HPP
