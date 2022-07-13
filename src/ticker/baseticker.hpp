@@ -25,7 +25,6 @@ public:
 
 	void m_run() {
 		while (!m_stop) {
-			std::this_thread::sleep_for(std::chrono::microseconds(100));
 			while (m_running) {
 				run();
 			}
@@ -49,8 +48,8 @@ protected:
 
 private:
 	std::thread m_thread;
-	bool m_running = false;
-	bool m_stop = false;
+	std::atomic_bool m_running = false;
+	std::atomic_bool m_stop = false;
 };
 
 #endif // BASETICKER_HPP
