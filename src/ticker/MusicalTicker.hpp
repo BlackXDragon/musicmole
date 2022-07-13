@@ -6,6 +6,7 @@
 #include <vector>
 #include <SFML/Audio.hpp>
 #include "../beat_detection/beat_detection.hpp"
+#include <future>
 
 class MusicalTicker : public BaseTicker {
 public:
@@ -24,15 +25,20 @@ public:
 
 	void run() {
 		int offset = music.getPlayingOffset().asMicroseconds();
-		for (int i = 0; i < beats.size(); i++) {
-			if (beats[i].count() >= offset)
-				break;
-			lastBeat = i;
-		}
-		if (offset >= music.getDuration().asMicroseconds())
+		if (offset >= music.getDuration().asMicroseconds() || music.getStatus() == sf::SoundSource::Stopped)
 			stop();
-		if (offset >= beats[lastBeat].count() && offset <= (beats[lastBeat].count() + 2000)) {
-			m_callback();
+		bool e = false;
+		int max_beats = beats.size();
+		while (beats[lastBeat].count() <= offset) {
+			lastBeat = lastBeat + 1 % max_beats;
+			if (music.getStatus() == sf::SoundSource::Stopped)
+				break;
+			e = true;
+		}
+		lastBeat -= e;
+		auto b = beats[lastBeat].count();
+		if (offset >= b && offset <= (b + 2000)) {
+			auto ret = std::async(std::launch::async, m_callback);
 			lastBeat++;
 		}
 	}
