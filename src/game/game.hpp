@@ -70,6 +70,7 @@ public:
 		}
 		this->mole_start_times[x][y] = std::chrono::high_resolution_clock::now();
 		m_threads.push_back(std::thread(&Game::remove_mole, this, x, y));
+		n_total++;
 	}
 
 	void whack(int x, int y) {
@@ -84,7 +85,6 @@ public:
 			board[x][y] = false;
 			n_whacked++;
 			whack_times.push_back(std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - mole_start_times[x][y]));
-			n_total++;
 		}
 	}
 
@@ -177,7 +177,7 @@ public:
 private:
 	int x, y;
 	std::vector<std::vector<bool>> board;
-	int n_whacked, n_missed, n_total;
+	std::atomic_int n_whacked, n_missed, n_total;
 	std::vector<std::chrono::duration<double>> whack_times;
 	std::mt19937 rd;
 	std::uniform_int_distribution<int> xdist, ydist;
@@ -200,7 +200,6 @@ private:
 		}
 		board[x][y] = false;
 		n_missed++;
-		n_total++;
 	}
 };
 
