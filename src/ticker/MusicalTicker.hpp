@@ -44,8 +44,8 @@ public:
 	}
 
 	void stop() {
-		this->music.stop();
 		BaseTicker::stop();
+		this->music.stop();
 	}
 
 	void pause() {
