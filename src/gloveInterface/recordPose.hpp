@@ -17,10 +17,10 @@ std::vector<std::vector<double>> recordPose(serialib &serial, int nSecs = 10) {
 
 	std::vector<std::vector<double>> data;
 
-	for (int i = 0; i < nSecs; i++) {
+	for (int i = 0; i < nSecs * 1000; i++) {
 		std::vector<double> currentData = getCurrentData(serial);
 		data.push_back(currentData);
-		std::this_thread::sleep_for(std::chrono::seconds(1));
+		std::this_thread::sleep_for(std::chrono::milliseconds(1));
 	}
 
 	return data;
