@@ -31,3 +31,5 @@ if (WIN32)
 	execute_process(COMMAND lib.exe /machine:X86 /def:${PROJECT_SOURCE_DIR}/external/fftw/libfftw3l-3.def /out:${PROJECT_SOURCE_DIR}/external/fftw/libfftw3l-3.lib)
 	set(fftwdir ${PROJECT_SOURCE_DIR}/external/fftw PARENT_SCOPE)
 endif()
+
+add_subdirectory(dlib)

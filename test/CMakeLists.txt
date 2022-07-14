@@ -48,3 +48,11 @@ if (WIN32)
 		add_custom_command(TARGET musicalTickerTest POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_if_different ${PROJECT_SOURCE_DIR}/external/SFML/extlibs/bin/x86/openal32.dll $<TARGET_FILE_DIR:beatDetectionTest>)
 	endif()
 endif()
+
+makeDlibExec(dlibTest dlibtest.cpp)
+
+makeDlibExec(gestureModelTest gestureModeltest.cpp)
+add_custom_command(TARGET gestureModelTest COMMAND ${CMAKE_COMMAND} -E copy_directory ${PROJECT_SOURCE_DIR}/test/gestureData $<TARGET_FILE_DIR:gestureModelTest>/gestureData)
+
+makeDlibExec(liveGestureTest liveGestureTest.cpp)
+target_link_libraries(liveGestureTest seriallib)

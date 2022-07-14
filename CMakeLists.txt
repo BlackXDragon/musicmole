@@ -15,6 +15,14 @@ macro(addlibfftw target)
 	endif()
 endmacro(addlibfftw)
 
+macro(makeDlibExec target sources)
+	add_executable(${target} ${sources})
+	target_link_libraries(${target} dlib)
+	if(MSVC)
+		set_property(TARGET ${target} PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+	endif()
+endmacro(makeDlibExec)
+
 add_subdirectory(test)
 
 add_executable(SFGUITest main.cpp)
