@@ -1,23 +1,29 @@
 #if !defined(MENU_HPP)
 #define MENU_HPP
 
+#include <variant>
+#include <filesystem>
 #include "../serial/availableSerial.hpp"
 #include "../ticker/PeriodicTicker.hpp"
 #include "../ticker/MusicalTicker.hpp"
 #include "../controllers/NumericalController.hpp"
+#include "modelTrainPopup.hpp"
 #include <SFGUI/SFGUI.hpp>
 #include <SFGUI/Widgets.hpp>
 #include <SFML/Graphics.hpp>
-#include <variant>
-#include <filesystem>
+#include <serialib.h>
 
 namespace fs = std::filesystem;
 
 #ifdef _WIN32
-	std::string musicpath = std::string(getenv("HOMEDRIVE")) + std::string(getenv("HOMEPATH")) + "\\Documents\\musicmole\\Music";
+	std::string homepath = std::string(getenv("HOMEDRIVE")) + std::string(getenv("HOMEPATH"));
+	std::string musicpath = homepath + "\\Documents\\musicmole\\Music";
+	std::string modelpath = homepath + "\\Documents\\musicmole\\Models\\";
 #endif
 #ifdef linux
-	std::string musicpath = std::string(getenv("HOME")) + "/musicmole/Music";
+	std::string homepath = std::string(getenv("HOME"));
+	std::string musicpath = homepath + "/musicmole/Music";
+	std::string modelpath = homepath + "/musicmole/Models/";
 #endif
 
 typedef struct {
@@ -28,7 +34,9 @@ typedef struct {
 
 class MenuWindow {
 public:
-	MenuWindow(sfg::Desktop& desktop) {
+	MenuWindow(sfg::Desktop& desktop, sf::RenderWindow& window) {
+		this->desktop = &desktop;
+		this->window = &window;
 		background = sf::RectangleShape(sf::Vector2f(600, 600));
 		background.setFillColor(sf::Color(0xA67C52FF));
 		
@@ -132,6 +140,14 @@ public:
 
 		auto modelNewButtonLeft = sfg::Button::Create("Train New Model");
 		auto modelNewButtonRight = sfg::Button::Create("Train New Model");
+
+		modelNewButtonLeft->GetSignal(sfg::Button::OnLeftClick).Connect(
+			std::bind(&MenuWindow::newModelButtonCallback, this, true)
+		);
+
+		modelNewButtonRight->GetSignal(sfg::Button::OnLeftClick).Connect(
+			std::bind(&MenuWindow::newModelButtonCallback, this, false)
+		);
 
 		glovesBoxLeft->Pack(modelNewButtonLeft);
 		glovesBoxRight->Pack(modelNewButtonRight);
@@ -294,7 +310,41 @@ public:
 	}
 
 	void Draw(sf::RenderWindow& window) {
-		window.draw(background);
+		if (modelTraining) {
+			box->Show(false);
+			modelTrainer->render(window);
+		} else {
+			box->Show(true);
+			window.draw(background);
+		}
+	}
+
+	void update(sf::Event& event) {
+		if (modelTraining) {
+			modelTrainer->update(event);
+		}
+	}
+
+	void newModelButtonCallback(bool left = true) {
+		std::string port;
+		if (left)
+			port = this->serialComboLeft->GetSelectedText();
+		else
+			port = this->serialComboRight->GetSelectedText();
+		if (port == "") return;
+		
+		this->serial = new serialib();
+		char err = this->serial->openDevice(port.c_str(), 9600);
+		if (err != 1) throw std::exception("Error opening COM Port");
+
+		this->modelTrainer = new NewModelTrainer(*serial, modelpath, sf::Vector2f(window->getSize().x, window->getSize().y), desktop, std::bind(&MenuWindow::modelTrainedCallback, this));
+		this->modelTraining = true;
+	}
+
+	void modelTrainedCallback() {
+		modelTraining = false;
+		delete modelTrainer;
+		delete serial;
 	}
 
 	sfg::Widget::Ptr getWindow() {
@@ -320,7 +370,6 @@ public:
 		}
 	}
 
-	// To be defined
 	void startGame() {
 		int c = this->controllerDropdown->GetSelectedItem();
 		int t = this->tickerDropdown->GetSelectedItem();
@@ -364,6 +413,11 @@ private:
 	sfg::Scale::Ptr tickerThresholdScale;
 	sfg::Label::Ptr tickerMusicThresholdValue;
 	std::function<void(int, std::string, std::string, std::variant<int, MusicalTickerParams>)> startCallback;
+	std::atomic_bool modelTraining = false;
+	NewModelTrainer* modelTrainer;
+	serialib* serial;
+	sfg::Desktop *desktop;
+	sf::RenderWindow *window;
 };
 
 #endif // MENU_HPP

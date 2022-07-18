@@ -29,7 +29,7 @@ void startCallback(int c, std::string c1, std::string c2, std::variant<int, Musi
 
 int main() {
 	sfg::SFGUI sfgui;
-	sf::RenderWindow window(sf::VideoMode::getFullscreenModes()[0], "SFML works!", sf::Style::Fullscreen);
+	sf::RenderWindow window(sf::VideoMode::getFullscreenModes()[0], "Menu Test", sf::Style::Fullscreen);
 	window.setFramerateLimit(MAX_FPS);
 	
 	sf::CircleShape shape(100.f);
@@ -40,7 +40,7 @@ int main() {
 
 	sfg::Desktop desktop;
 	
-	MenuWindow menu = MenuWindow(desktop);
+	MenuWindow menu = MenuWindow(desktop, window);
 	menu.updateSize(sf::Vector2f(window.getSize().x, window.getSize().y));
 	menu.setStartCallback(startCallback);
 
@@ -54,6 +54,7 @@ int main() {
 		sf::Event event;
 		while (window.pollEvent(event)) {
 			desktop.HandleEvent(event);
+			menu.update(event);
 			if (event.type == sf::Event::Resized)
 				menu.updateSize(sf::Vector2f(event.size.width, event.size.height));
 			if (event.type == sf::Event::Closed)

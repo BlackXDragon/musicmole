@@ -11,8 +11,8 @@ add_custom_command(TARGET NumericalControllerTest POST_BUILD COMMAND ${CMAKE_COM
 
 add_executable(PeriodicTickerTest PeriodicTickerTest.cpp)
 
-add_executable(MenuTest menuTest.cpp)
-target_link_libraries(MenuTest SFGUI sfml-audio sfml-window sfml-graphics sfml-system)
+makeDlibExec(MenuTest menuTest.cpp)
+target_link_libraries(MenuTest SFGUI sfml-audio sfml-window sfml-graphics sfml-system seriallib)
 target_include_directories(MenuTest PRIVATE external/SFML/include)
 addlibfftw(MenuTest)
 
