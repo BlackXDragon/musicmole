@@ -35,6 +35,7 @@ std::vector<double> getCurrentData(serialib &serial) {
 
 	while (!std::regex_search(str, match, rgx)) {
 		serial.readString(buffer, '\n', 256);
+		str = buffer;
 	}
 
 	std::vector<double> data;

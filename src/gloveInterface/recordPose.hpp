@@ -16,8 +16,10 @@ std::vector<std::vector<double>> recordPose(serialib &serial, int nSecs = 10) {
 	}
 
 	std::vector<std::vector<double>> data;
+	
+	auto start = std::chrono::high_resolution_clock::now();
 
-	for (int i = 0; i < nSecs * 1000; i++) {
+	while (std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - start).count() <= (nSecs * 1000)) {
 		std::vector<double> currentData = getCurrentData(serial);
 		data.push_back(currentData);
 		std::this_thread::sleep_for(std::chrono::milliseconds(1));
