@@ -149,6 +149,14 @@ public:
 		auto modelDeleteButtonLeft = sfg::Button::Create("Delete");
 		auto modelDeleteButtonRight = sfg::Button::Create("Delete");
 
+		modelDeleteButtonLeft->GetSignal(sfg::Button::OnLeftClick).Connect(
+			std::bind(&MenuWindow::deleteModel, this, modelComboLeft, true)
+		);
+
+		modelDeleteButtonRight->GetSignal(sfg::Button::OnLeftClick).Connect(
+			std::bind(&MenuWindow::deleteModel, this, modelComboRight, false)
+		);
+
 		modelBoxLeft->Pack(modelDeleteButtonLeft);
 		modelBoxRight->Pack(modelDeleteButtonRight);
 
@@ -315,6 +323,20 @@ public:
 		for (auto& file : fs::directory_iterator(modelpath)) {
 			combo->AppendItem(std::string(file.path().filename().u8string()));
 		}
+	}
+
+	void deleteModel(sfg::ComboBox::Ptr combo, bool left = true) {
+		std::string modelpath = (left) ? lmodelpath : rmodelpath;
+		if (!fs::is_directory(fs::path(modelpath)))
+			fs::create_directories(fs::path(modelpath));
+		auto model = combo->GetSelectedText();
+		if (model == "")
+			return;
+		if (!fs::exists(fs::path(modelpath + combo->GetSelectedText())))
+			return;
+		fs::remove(fs::path(modelpath + model));
+		refreshModel(modelComboLeft, true);
+		refreshModel(modelComboRight, false);
 	}
 
 	void refreshMusic(sfg::ComboBox::Ptr combo) {
