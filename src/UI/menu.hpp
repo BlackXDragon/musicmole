@@ -126,17 +126,31 @@ public:
 		modelBoxLeft->Pack(modelLabelLeft);
 		modelBoxRight->Pack(modelLabelRight);
 
-		auto modelComboLeft = sfg::ComboBox::Create();
-		auto modelComboRight = sfg::ComboBox::Create();
+		modelComboLeft = sfg::ComboBox::Create();
+		modelComboRight = sfg::ComboBox::Create();
 
 		modelBoxLeft->Pack(modelComboLeft);
 		modelBoxRight->Pack(modelComboRight);
 
-		auto modelButtonLeft = sfg::Button::Create("Delete");
-		auto modelButtonRight = sfg::Button::Create("Delete");
+		auto modelRefreshButtonLeft = sfg::Button::Create("Refresh");
+		auto modelRefreshButtonRight = sfg::Button::Create("Refresh");
 
-		modelBoxLeft->Pack(modelButtonLeft);
-		modelBoxRight->Pack(modelButtonRight);
+		modelRefreshButtonLeft->GetSignal(sfg::Button::OnLeftClick).Connect(
+			std::bind(&MenuWindow::refreshModel, this, modelComboLeft, true)
+		);
+
+		modelRefreshButtonRight->GetSignal(sfg::Button::OnLeftClick).Connect(
+			std::bind(&MenuWindow::refreshModel, this, modelComboRight, false)
+		);
+
+		modelBoxLeft->Pack(modelRefreshButtonLeft);
+		modelBoxRight->Pack(modelRefreshButtonRight);
+
+		auto modelDeleteButtonLeft = sfg::Button::Create("Delete");
+		auto modelDeleteButtonRight = sfg::Button::Create("Delete");
+
+		modelBoxLeft->Pack(modelDeleteButtonLeft);
+		modelBoxRight->Pack(modelDeleteButtonRight);
 
 		glovesBoxLeft->Pack(modelBoxLeft);
 		glovesBoxRight->Pack(modelBoxRight);
@@ -275,6 +289,8 @@ public:
 		tickerDropdown->SelectItem(0);
 		onTickerDropdownChange();
 		refreshMusic(tickerMusicFileCombo);
+		refreshModel(modelComboLeft, true);
+		refreshModel(modelComboRight, false);
 	}
 
 	~MenuWindow() {}
@@ -286,6 +302,18 @@ public:
 		auto availableSerialPorts = SelectComPort();
 		for (auto& port : availableSerialPorts) {
 			combo->AppendItem(port);
+		}
+	}
+
+	void refreshModel(sfg::ComboBox::Ptr combo, bool left = true) {
+		while (combo->GetItemCount() > 0) {
+			combo->RemoveItem(0);
+		}
+		std::string modelpath = (left) ? lmodelpath : rmodelpath;
+		if (!fs::is_directory(fs::path(modelpath)))
+			fs::create_directories(fs::path(modelpath));
+		for (auto& file : fs::directory_iterator(modelpath)) {
+			combo->AppendItem(std::string(file.path().filename().u8string()));
 		}
 	}
 
@@ -350,6 +378,8 @@ public:
 	void modelTrainedCallback() {
 		modelTraining = false;
 		serial->closeDevice();
+		refreshModel(modelComboLeft, true);
+		refreshModel(modelComboRight, false);
 	}
 
 	sfg::Widget::Ptr getWindow() {
@@ -412,7 +442,7 @@ public:
 
 private:
 	sfg::Box::Ptr box, glovesBox, periodicTickerBox, musicalTickerBox;
-	sfg::ComboBox::Ptr serialComboLeft, serialComboRight, controllerDropdown, tickerDropdown, tickerMusicFileCombo;
+	sfg::ComboBox::Ptr serialComboLeft, serialComboRight, controllerDropdown, tickerDropdown, tickerMusicFileCombo, modelComboLeft, modelComboRight;
 	sf::RectangleShape background;
 	sfg::SpinButton::Ptr tickerPeriodSpinButton, tickerLowFreqSpinButton, tickerHighFreqSpinButton, tickerAnalysisSpinButton, tickerIgnoreSpinButton;
 	sfg::Scale::Ptr tickerThresholdScale;
