@@ -3,6 +3,7 @@
 
 #include <variant>
 #include <filesystem>
+#include <atomic>
 #include "../serial/availableSerial.hpp"
 #include "../ticker/PeriodicTicker.hpp"
 #include "../ticker/MusicalTicker.hpp"
@@ -18,12 +19,14 @@ namespace fs = std::filesystem;
 #ifdef _WIN32
 	std::string homepath = std::string(getenv("HOMEDRIVE")) + std::string(getenv("HOMEPATH"));
 	std::string musicpath = homepath + "\\Documents\\musicmole\\Music";
-	std::string modelpath = homepath + "\\Documents\\musicmole\\Models\\";
+	std::string lmodelpath = homepath + "\\Documents\\musicmole\\Models\\Left\\";
+	std::string rmodelpath = homepath + "\\Documents\\musicmole\\Models\\Right\\";
 #endif
 #ifdef linux
 	std::string homepath = std::string(getenv("HOME"));
 	std::string musicpath = homepath + "/musicmole/Music";
-	std::string modelpath = homepath + "/musicmole/Models/";
+	std::string lmodelpath = homepath + "/musicmole/Models/Left/";
+	std::string rmodelpath = homepath + "/musicmole/Models/Right/";
 #endif
 
 typedef struct {
@@ -337,14 +340,16 @@ public:
 		char err = this->serial->openDevice(port.c_str(), 9600);
 		if (err != 1) throw std::exception("Error opening COM Port");
 
-		this->modelTrainer = new NewModelTrainer(*serial, modelpath, sf::Vector2f(window->getSize().x, window->getSize().y), desktop, std::bind(&MenuWindow::modelTrainedCallback, this));
+		if (left)
+			this->modelTrainer = new NewModelTrainer(*serial, lmodelpath, sf::Vector2f(window->getSize().x, window->getSize().y), desktop, std::bind(&MenuWindow::modelTrainedCallback, this));
+		else
+			this->modelTrainer = new NewModelTrainer(*serial, rmodelpath, sf::Vector2f(window->getSize().x, window->getSize().y), desktop, std::bind(&MenuWindow::modelTrainedCallback, this));
 		this->modelTraining = true;
 	}
 
 	void modelTrainedCallback() {
 		modelTraining = false;
-		delete modelTrainer;
-		delete serial;
+		serial->closeDevice();
 	}
 
 	sfg::Widget::Ptr getWindow() {
@@ -418,6 +423,7 @@ private:
 	serialib* serial;
 	sfg::Desktop *desktop;
 	sf::RenderWindow *window;
+	std::thread m_thread;
 };
 
 #endif // MENU_HPP

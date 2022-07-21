@@ -11,6 +11,8 @@
 #include <functional>
 #include <future>
 
+namespace fs = std::filesystem;
+
 class NewModelTrainer {
 public:
 	NewModelTrainer(serialib &serial, std::string savepath, sf::Vector2f windowSize, sfg::Desktop *desktop, std::function<void()> onTrainingComplete) : serial(serial), savepath(savepath), windowSize(windowSize), desktop(desktop), onTrainingComplete(onTrainingComplete) {
@@ -36,11 +38,6 @@ public:
 		btn->GetSignal(sfg::Button::OnLeftClick).Connect(
 			std::bind(&NewModelTrainer::btnPressCallback, this)
 		);
-	}
-
-	~NewModelTrainer() {
-		desktop->Remove(label);
-		desktop->Remove(btn);
 	}
 
 	void render(sf::RenderWindow& window) {
@@ -81,7 +78,23 @@ public:
 	}
 
 	void update(sf::Event &event) {
-		if (stage == 0) {            
+		if (stage > 0 && stage < 5) {
+			if (event.type == sf::Event::KeyPressed)
+				if (event.key.code == sf::Keyboard::Space)
+					spacePressed = true;
+			if (event.type == sf::Event::KeyReleased && spacePressed) {
+				if (event.key.code == sf::Keyboard::Space && spacePressed) {
+					spacePressed = false;
+					if (!recordingPose) {
+						recordingPose = true;
+						if (m_thread.joinable()) {
+							m_thread.join();
+						}
+						m_thread = std::thread(std::bind(&NewModelTrainer::recordNewPose, this));
+					}
+				}
+			}
+		} else if (stage == 0) {            
 			if (event.type == sf::Event::TextEntered) {
 				auto unicode = event.text.unicode;
 				if ((unicode >= 48 && unicode <= 57) || (unicode >= 65 && unicode <= 90) || (unicode >= 97 && unicode <= 122) || unicode == 95) {
@@ -93,19 +106,13 @@ public:
 					textbox.setString(input);
 				}
 			}
-		} else if (stage > 0 && stage < 5) {
-			if (event.type == sf::Event::KeyPressed)
-				if (event.key.code == sf::Keyboard::Space)
-					spacePressed = true;
-			if (event.type == sf::Event::KeyReleased && spacePressed) {
-				if (event.key.code == sf::Keyboard::Space && spacePressed) {
-					auto x = std::async(std::launch::async, std::bind(&NewModelTrainer::recordNewPose, this));
-				}
-			}
 		}
 	}
 
 	void recordNewPose() {
+		char v[3];
+		sprintf(v, "%d", stage - 1);
+		label->SetText("Recording the gesture for " + std::string(v) + "...");
 		auto new_poses = recordPose(serial);
 		for (auto &i: new_poses) {
 			poses.push_back(std::vector<float>(i.begin(), i.end()));
@@ -113,41 +120,53 @@ public:
 		}
 		stage++;
 		if (stage == 5) {
-			label->SetText("Press start to train and save the model.");
+			label->SetText("Press start to train and\nsave the model.");
 			btn->Show(true);
 			btn->SetLabel("Start");
 			return;
 		}
-		char v[3];
 		sprintf(v, "%d", stage - 1);
-		label->SetText("Ready the gesture for " + std::string(v) + " on your hand and press\nthe spacebar to start recording for 10 seconds.");
+		label->SetText("Ready the gesture for " + std::string(v) + " on\nyour hand and press the\nspacebar to start recording\nfor 10 seconds.");
 		btn->Show(false);
-		spacePressed = false;
+		recordingPose = false;
 	}
 
 	void trainAndSaveModel() {
+		std::cout << "Training model\n";
 		trainer_t t = createGestureModel();
 		std::vector<sample_type> samples = convertToSampleTypes(poses);
 		df_t df = trainGestureModel(t, samples, labels);
+		if (!fs::is_directory(fs::path(savepath)))
+			fs::create_directories(fs::path(savepath));
 		saveGestureModel(df, savepath + input);
 		stage++;
-		label->SetText("Model trained and saved. Press done to continue.");
+		label->SetText("Model trained and saved.\nPress done to continue.");
+		btn->Show(true);
 		btn->SetLabel("Done.");
 	}
 	
 	void btnPressCallback() {
-		if (stage == 0 || stage >= 6)
+		if (stage == 0)
 			stage++;
 		if (stage == 1) {
 			char v[3];
 			sprintf(v, "%d", stage - 1);
-			label->SetText("Ready the gesture for " + std::string(v) + " on your hand and press\nthe spacebar to start recording for 10 seconds.");
+			label->SetText("Ready the gesture for " + std::string(v) + " on\nyour hand and press the\nspacebar to start recording\nfor 10 seconds.");
 			btn->Show(false);
 		}
-		if (stage == 6) {
-			auto x = std::async(std::launch::async, std::bind(&NewModelTrainer::trainAndSaveModel, this));
+		if (stage == 5) {
+			label->SetText("Please wait...\nThe model is training...");
+			btn->Show(false);
+			if (m_thread.joinable()) {
+				m_thread.join();
+			}
+			m_thread = std::thread(std::bind(&NewModelTrainer::trainAndSaveModel, this));
 		}
-		if (stage == 7) {
+		if (stage == 6) {
+			desktop->Remove(label);
+			desktop->Remove(btn);
+			label.reset();
+			btn.reset();
 			onTrainingComplete();
 		}
 	}
@@ -157,7 +176,7 @@ private:
 	sf::Font font;
 	sf::Text textbox;
 	std::string input = "";
-	bool spacePressed = false;
+	bool spacePressed = false, recordingPose = false;;
 	sfg::Label::Ptr label;
 	sfg::Button::Ptr btn;
 	int stage = 0;
@@ -168,6 +187,7 @@ private:
 	sf::Vector2f windowSize;
 	sfg::Desktop *desktop;
 	std::function<void()> onTrainingComplete;
+	std::thread m_thread;
 };
 
 #endif // MODELTRAINPOPUP_HPP
