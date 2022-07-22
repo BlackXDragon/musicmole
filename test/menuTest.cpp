@@ -12,11 +12,32 @@ int MAX_FPS = 30;
 
 bool close = false;
 
-void startCallback(int c, std::string c1, std::string c2, std::variant<int, MusicalTickerParams> t) {
-	if (t.index() == 0)
-		std::cout << "Got: " << c << ", " << c1 << ", " << c2 << ", Periodic Ticker with period: " << std::get<int>(t) << std::endl;
+void startCallback(std::variant<int, GestureControllerParams> c, std::variant<int, MusicalTickerParams> t) {
+	if (c.index() == 0 && t.index() == 0)
+		std::cout << "Numerical Controller\nPeriodic Ticker with period: " << std::get<int>(t) << std::endl;
+	else if (c.index() == 0 && t.index() == 1)
+		std::cout << "Numerical Controller,"
+			<< "\nMusical Ticker: "
+			<< "\nFilename: " << std::get<MusicalTickerParams>(t).filename
+			<< "\nFreq range: " << std::get<MusicalTickerParams>(t).lowFreq << " - " << std::get<MusicalTickerParams>(t).highFreq
+			<< "\nThreshold: " << std::get<MusicalTickerParams>(t).threshold
+			<< "\nAnalysis period: " << std::get<MusicalTickerParams>(t).analysisPeriod.count() / 1000 << " ms"
+			<< "\nIgnore period: " << std::get<MusicalTickerParams>(t).ignorePeriod.count() / 1000 << " ms"
+			<< std::endl;
+	else if (c.index() == 1 && t.index() == 0)
+		std::cout << "Gesture Controller: "
+			<< "\nLeft COM port: " << std::get<GestureControllerParams>(c).lCOMport
+			<< "\nRight COM port: " << std::get<GestureControllerParams>(c).rCOMport
+			<< "\nLeft model path: " << std::get<GestureControllerParams>(c).lmodelPath
+			<< "\nRight model path: " << std::get<GestureControllerParams>(c).rmodelPath
+			<< "\nPeriodic Ticker with period: " << std::get<int>(t)
+			<< std::endl;
 	else
-		std::cout << "Got: " << c << ", " << c1 << ", " << c2
+		std::cout << "Gesture Controller: "
+			<< "\nLeft COM port: " << std::get<GestureControllerParams>(c).lCOMport
+			<< "\nRight COM port: " << std::get<GestureControllerParams>(c).rCOMport
+			<< "\nLeft model path: " << std::get<GestureControllerParams>(c).lmodelPath
+			<< "\nRight model path: " << std::get<GestureControllerParams>(c).rmodelPath
 			<< "\nMusical Ticker: "
 			<< "\nFilename: " << std::get<MusicalTickerParams>(t).filename
 			<< "\nFreq range: " << std::get<MusicalTickerParams>(t).lowFreq << " - " << std::get<MusicalTickerParams>(t).highFreq

@@ -35,6 +35,11 @@ typedef struct {
 	std::chrono::microseconds analysisPeriod, ignorePeriod;
 } MusicalTickerParams;
 
+typedef struct {
+	std::string lCOMport, lmodelPath;
+	std::string rCOMport, rmodelPath;
+} GestureControllerParams;
+
 class MenuWindow {
 public:
 	MenuWindow(sfg::Desktop& desktop, sf::RenderWindow& window) {
@@ -433,26 +438,59 @@ public:
 		if (c == 0 && t == 0) {
 			int v = tickerPeriodSpinButton->GetValue();
 			std::variant<int, MusicalTickerParams> tickerParam = v;
-			std::visit([this](auto &p){this->startCallback(0, "", "", p);}, tickerParam);
+			std::variant<int, GestureControllerParams> controllerParam = 0;
+			std::visit(this->startCallback, controllerParam, tickerParam);
 		} else if (c == 0 && t == 1) {
-			MusicalTickerParams p = MusicalTickerParams{};
+			MusicalTickerParams tp = MusicalTickerParams{};
 			#ifdef _WIN32
-				p.filename = musicpath + "\\" + tickerMusicFileCombo->GetSelectedText();
+				tp.filename = musicpath + "\\" + tickerMusicFileCombo->GetSelectedText();
 			#endif
 			#ifdef linux
-				p.filename = musicpath + "/" + tickerMusicFileCombo->GetSelectedText();
+				tp.filename = musicpath + "/" + tickerMusicFileCombo->GetSelectedText();
 			#endif
-			p.lowFreq = tickerLowFreqSpinButton->GetValue();
-			p.highFreq = tickerHighFreqSpinButton->GetValue();
-			p.threshold = tickerThresholdScale->GetValue();
-			p.analysisPeriod = std::chrono::milliseconds((int)tickerAnalysisSpinButton->GetValue());
-			p.ignorePeriod = std::chrono::milliseconds((int)tickerIgnoreSpinButton->GetValue());
-			std::variant<int, MusicalTickerParams> tickerParam = p;
-			std::visit([this](auto &p){this->startCallback(0, "", "", p);}, tickerParam);
-		} // Rest to be implemented
+			tp.lowFreq = tickerLowFreqSpinButton->GetValue();
+			tp.highFreq = tickerHighFreqSpinButton->GetValue();
+			tp.threshold = tickerThresholdScale->GetValue();
+			tp.analysisPeriod = std::chrono::milliseconds((int)tickerAnalysisSpinButton->GetValue());
+			tp.ignorePeriod = std::chrono::milliseconds((int)tickerIgnoreSpinButton->GetValue());
+			std::variant<int, MusicalTickerParams> tickerParam = tp;
+			std::variant<int, GestureControllerParams> controllerParam = 0;
+			std::visit(this->startCallback, controllerParam, tickerParam);
+		} else if (c == 1 && t == 0) {
+			int v = tickerPeriodSpinButton->GetValue();
+			std::variant<int, MusicalTickerParams> tickerParam = v;
+			GestureControllerParams cp = GestureControllerParams{};
+			cp.lCOMport = serialComboLeft->GetSelectedText();
+			cp.rCOMport = serialComboLeft->GetSelectedText();
+			cp.lmodelPath = lmodelpath + modelComboLeft->GetSelectedText();
+			cp.rmodelPath = rmodelpath + modelComboRight->GetSelectedText();
+			std::variant<int, GestureControllerParams> controllerParam = cp;
+			std::visit(this->startCallback, controllerParam, tickerParam);
+		} else {
+			MusicalTickerParams tp = MusicalTickerParams{};
+			#ifdef _WIN32
+				tp.filename = musicpath + "\\" + tickerMusicFileCombo->GetSelectedText();
+			#endif
+			#ifdef linux
+				tp.filename = musicpath + "/" + tickerMusicFileCombo->GetSelectedText();
+			#endif
+			tp.lowFreq = tickerLowFreqSpinButton->GetValue();
+			tp.highFreq = tickerHighFreqSpinButton->GetValue();
+			tp.threshold = tickerThresholdScale->GetValue();
+			tp.analysisPeriod = std::chrono::milliseconds((int)tickerAnalysisSpinButton->GetValue());
+			tp.ignorePeriod = std::chrono::milliseconds((int)tickerIgnoreSpinButton->GetValue());
+			std::variant<int, MusicalTickerParams> tickerParam = tp;
+			GestureControllerParams cp = GestureControllerParams{};
+			cp.lCOMport = serialComboLeft->GetSelectedText();
+			cp.rCOMport = serialComboLeft->GetSelectedText();
+			cp.lmodelPath = lmodelpath + modelComboLeft->GetSelectedText();
+			cp.rmodelPath = rmodelpath + modelComboRight->GetSelectedText();
+			std::variant<int, GestureControllerParams> controllerParam = cp;
+			std::visit(this->startCallback, controllerParam, tickerParam);
+		}
 	}
 
-	void setStartCallback(std::function<void(int, std::string, std::string, std::variant<int, MusicalTickerParams>)> startCallback) {
+	void setStartCallback(std::function<void(std::variant<int, GestureControllerParams>, std::variant<int, MusicalTickerParams>)> startCallback) {
 		this->startCallback = startCallback;
 	}
 
@@ -469,7 +507,7 @@ private:
 	sfg::SpinButton::Ptr tickerPeriodSpinButton, tickerLowFreqSpinButton, tickerHighFreqSpinButton, tickerAnalysisSpinButton, tickerIgnoreSpinButton;
 	sfg::Scale::Ptr tickerThresholdScale;
 	sfg::Label::Ptr tickerMusicThresholdValue;
-	std::function<void(int, std::string, std::string, std::variant<int, MusicalTickerParams>)> startCallback;
+	std::function<void(std::variant<int, GestureControllerParams>, std::variant<int, MusicalTickerParams>)> startCallback;
 	std::atomic_bool modelTraining = false;
 	NewModelTrainer* modelTrainer;
 	serialib* serial;
