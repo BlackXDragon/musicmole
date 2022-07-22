@@ -5,6 +5,10 @@ project(musicmole CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+if(MSVC)
+	set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+endif()
+
 add_subdirectory(external)
 
 macro(addlibfftw target)
@@ -14,6 +18,14 @@ macro(addlibfftw target)
 		target_include_directories(${target} PUBLIC ${fftwdir})
 	endif()
 endmacro(addlibfftw)
+
+macro(makeDlibExec target sources)
+	add_executable(${target} ${sources})
+	target_link_libraries(${target} dlib)
+	if(MSVC)
+		set_property(TARGET ${target} PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+	endif()
+endmacro(makeDlibExec)
 
 add_subdirectory(test)
 

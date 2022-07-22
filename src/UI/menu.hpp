@@ -1,23 +1,32 @@
 #if !defined(MENU_HPP)
 #define MENU_HPP
 
+#include <variant>
+#include <filesystem>
+#include <atomic>
 #include "../serial/availableSerial.hpp"
 #include "../ticker/PeriodicTicker.hpp"
 #include "../ticker/MusicalTicker.hpp"
 #include "../controllers/NumericalController.hpp"
+#include "modelTrainPopup.hpp"
 #include <SFGUI/SFGUI.hpp>
 #include <SFGUI/Widgets.hpp>
 #include <SFML/Graphics.hpp>
-#include <variant>
-#include <filesystem>
+#include <serialib.h>
 
 namespace fs = std::filesystem;
 
 #ifdef _WIN32
-	std::string musicpath = std::string(getenv("HOMEDRIVE")) + std::string(getenv("HOMEPATH")) + "\\Documents\\musicmole\\Music";
+	std::string homepath = std::string(getenv("HOMEDRIVE")) + std::string(getenv("HOMEPATH"));
+	std::string musicpath = homepath + "\\Documents\\musicmole\\Music";
+	std::string lmodelpath = homepath + "\\Documents\\musicmole\\Models\\Left\\";
+	std::string rmodelpath = homepath + "\\Documents\\musicmole\\Models\\Right\\";
 #endif
 #ifdef linux
-	std::string musicpath = std::string(getenv("HOME")) + "/musicmole/Music";
+	std::string homepath = std::string(getenv("HOME"));
+	std::string musicpath = homepath + "/musicmole/Music";
+	std::string lmodelpath = homepath + "/musicmole/Models/Left/";
+	std::string rmodelpath = homepath + "/musicmole/Models/Right/";
 #endif
 
 typedef struct {
@@ -26,9 +35,16 @@ typedef struct {
 	std::chrono::microseconds analysisPeriod, ignorePeriod;
 } MusicalTickerParams;
 
+typedef struct {
+	std::string lCOMport, lmodelPath;
+	std::string rCOMport, rmodelPath;
+} GestureControllerParams;
+
 class MenuWindow {
 public:
-	MenuWindow(sfg::Desktop& desktop) {
+	MenuWindow(sfg::Desktop& desktop, sf::RenderWindow& window) {
+		this->desktop = &desktop;
+		this->window = &window;
 		background = sf::RectangleShape(sf::Vector2f(600, 600));
 		background.setFillColor(sf::Color(0xA67C52FF));
 		
@@ -115,23 +131,53 @@ public:
 		modelBoxLeft->Pack(modelLabelLeft);
 		modelBoxRight->Pack(modelLabelRight);
 
-		auto modelComboLeft = sfg::ComboBox::Create();
-		auto modelComboRight = sfg::ComboBox::Create();
+		modelComboLeft = sfg::ComboBox::Create();
+		modelComboRight = sfg::ComboBox::Create();
 
 		modelBoxLeft->Pack(modelComboLeft);
 		modelBoxRight->Pack(modelComboRight);
 
-		auto modelButtonLeft = sfg::Button::Create("Delete");
-		auto modelButtonRight = sfg::Button::Create("Delete");
+		auto modelRefreshButtonLeft = sfg::Button::Create("Refresh");
+		auto modelRefreshButtonRight = sfg::Button::Create("Refresh");
 
-		modelBoxLeft->Pack(modelButtonLeft);
-		modelBoxRight->Pack(modelButtonRight);
+		modelRefreshButtonLeft->GetSignal(sfg::Button::OnLeftClick).Connect(
+			std::bind(&MenuWindow::refreshModel, this, modelComboLeft, true)
+		);
+
+		modelRefreshButtonRight->GetSignal(sfg::Button::OnLeftClick).Connect(
+			std::bind(&MenuWindow::refreshModel, this, modelComboRight, false)
+		);
+
+		modelBoxLeft->Pack(modelRefreshButtonLeft);
+		modelBoxRight->Pack(modelRefreshButtonRight);
+
+		auto modelDeleteButtonLeft = sfg::Button::Create("Delete");
+		auto modelDeleteButtonRight = sfg::Button::Create("Delete");
+
+		modelDeleteButtonLeft->GetSignal(sfg::Button::OnLeftClick).Connect(
+			std::bind(&MenuWindow::deleteModel, this, modelComboLeft, true)
+		);
+
+		modelDeleteButtonRight->GetSignal(sfg::Button::OnLeftClick).Connect(
+			std::bind(&MenuWindow::deleteModel, this, modelComboRight, false)
+		);
+
+		modelBoxLeft->Pack(modelDeleteButtonLeft);
+		modelBoxRight->Pack(modelDeleteButtonRight);
 
 		glovesBoxLeft->Pack(modelBoxLeft);
 		glovesBoxRight->Pack(modelBoxRight);
 
 		auto modelNewButtonLeft = sfg::Button::Create("Train New Model");
 		auto modelNewButtonRight = sfg::Button::Create("Train New Model");
+
+		modelNewButtonLeft->GetSignal(sfg::Button::OnLeftClick).Connect(
+			std::bind(&MenuWindow::newModelButtonCallback, this, true)
+		);
+
+		modelNewButtonRight->GetSignal(sfg::Button::OnLeftClick).Connect(
+			std::bind(&MenuWindow::newModelButtonCallback, this, false)
+		);
 
 		glovesBoxLeft->Pack(modelNewButtonLeft);
 		glovesBoxRight->Pack(modelNewButtonRight);
@@ -256,6 +302,8 @@ public:
 		tickerDropdown->SelectItem(0);
 		onTickerDropdownChange();
 		refreshMusic(tickerMusicFileCombo);
+		refreshModel(modelComboLeft, true);
+		refreshModel(modelComboRight, false);
 	}
 
 	~MenuWindow() {}
@@ -268,6 +316,32 @@ public:
 		for (auto& port : availableSerialPorts) {
 			combo->AppendItem(port);
 		}
+	}
+
+	void refreshModel(sfg::ComboBox::Ptr combo, bool left = true) {
+		while (combo->GetItemCount() > 0) {
+			combo->RemoveItem(0);
+		}
+		std::string modelpath = (left) ? lmodelpath : rmodelpath;
+		if (!fs::is_directory(fs::path(modelpath)))
+			fs::create_directories(fs::path(modelpath));
+		for (auto& file : fs::directory_iterator(modelpath)) {
+			combo->AppendItem(std::string(file.path().filename().u8string()));
+		}
+	}
+
+	void deleteModel(sfg::ComboBox::Ptr combo, bool left = true) {
+		std::string modelpath = (left) ? lmodelpath : rmodelpath;
+		if (!fs::is_directory(fs::path(modelpath)))
+			fs::create_directories(fs::path(modelpath));
+		auto model = combo->GetSelectedText();
+		if (model == "")
+			return;
+		if (!fs::exists(fs::path(modelpath + combo->GetSelectedText())))
+			return;
+		fs::remove(fs::path(modelpath + model));
+		refreshModel(modelComboLeft, true);
+		refreshModel(modelComboRight, false);
 	}
 
 	void refreshMusic(sfg::ComboBox::Ptr combo) {
@@ -294,7 +368,45 @@ public:
 	}
 
 	void Draw(sf::RenderWindow& window) {
-		window.draw(background);
+		if (modelTraining) {
+			box->Show(false);
+			modelTrainer->render(window);
+		} else {
+			box->Show(true);
+			window.draw(background);
+		}
+	}
+
+	void update(sf::Event& event) {
+		if (modelTraining) {
+			modelTrainer->update(event);
+		}
+	}
+
+	void newModelButtonCallback(bool left = true) {
+		std::string port;
+		if (left)
+			port = this->serialComboLeft->GetSelectedText();
+		else
+			port = this->serialComboRight->GetSelectedText();
+		if (port == "") return;
+		
+		this->serial = new serialib();
+		char err = this->serial->openDevice(port.c_str(), 9600);
+		if (err != 1) throw std::exception("Error opening COM Port");
+
+		if (left)
+			this->modelTrainer = new NewModelTrainer(*serial, lmodelpath, sf::Vector2f(window->getSize().x, window->getSize().y), desktop, std::bind(&MenuWindow::modelTrainedCallback, this));
+		else
+			this->modelTrainer = new NewModelTrainer(*serial, rmodelpath, sf::Vector2f(window->getSize().x, window->getSize().y), desktop, std::bind(&MenuWindow::modelTrainedCallback, this));
+		this->modelTraining = true;
+	}
+
+	void modelTrainedCallback() {
+		modelTraining = false;
+		serial->closeDevice();
+		refreshModel(modelComboLeft, true);
+		refreshModel(modelComboRight, false);
 	}
 
 	sfg::Widget::Ptr getWindow() {
@@ -320,33 +432,65 @@ public:
 		}
 	}
 
-	// To be defined
 	void startGame() {
 		int c = this->controllerDropdown->GetSelectedItem();
 		int t = this->tickerDropdown->GetSelectedItem();
 		if (c == 0 && t == 0) {
 			int v = tickerPeriodSpinButton->GetValue();
 			std::variant<int, MusicalTickerParams> tickerParam = v;
-			std::visit([this](auto &p){this->startCallback(0, "", "", p);}, tickerParam);
+			std::variant<int, GestureControllerParams> controllerParam = 0;
+			std::visit(this->startCallback, controllerParam, tickerParam);
 		} else if (c == 0 && t == 1) {
-			MusicalTickerParams p = MusicalTickerParams{};
+			MusicalTickerParams tp = MusicalTickerParams{};
 			#ifdef _WIN32
-				p.filename = musicpath + "\\" + tickerMusicFileCombo->GetSelectedText();
+				tp.filename = musicpath + "\\" + tickerMusicFileCombo->GetSelectedText();
 			#endif
 			#ifdef linux
-				p.filename = musicpath + "/" + tickerMusicFileCombo->GetSelectedText();
+				tp.filename = musicpath + "/" + tickerMusicFileCombo->GetSelectedText();
 			#endif
-			p.lowFreq = tickerLowFreqSpinButton->GetValue();
-			p.highFreq = tickerHighFreqSpinButton->GetValue();
-			p.threshold = tickerThresholdScale->GetValue();
-			p.analysisPeriod = std::chrono::milliseconds((int)tickerAnalysisSpinButton->GetValue());
-			p.ignorePeriod = std::chrono::milliseconds((int)tickerIgnoreSpinButton->GetValue());
-			std::variant<int, MusicalTickerParams> tickerParam = p;
-			std::visit([this](auto &p){this->startCallback(0, "", "", p);}, tickerParam);
-		} // Rest to be implemented
+			tp.lowFreq = tickerLowFreqSpinButton->GetValue();
+			tp.highFreq = tickerHighFreqSpinButton->GetValue();
+			tp.threshold = tickerThresholdScale->GetValue();
+			tp.analysisPeriod = std::chrono::milliseconds((int)tickerAnalysisSpinButton->GetValue());
+			tp.ignorePeriod = std::chrono::milliseconds((int)tickerIgnoreSpinButton->GetValue());
+			std::variant<int, MusicalTickerParams> tickerParam = tp;
+			std::variant<int, GestureControllerParams> controllerParam = 0;
+			std::visit(this->startCallback, controllerParam, tickerParam);
+		} else if (c == 1 && t == 0) {
+			int v = tickerPeriodSpinButton->GetValue();
+			std::variant<int, MusicalTickerParams> tickerParam = v;
+			GestureControllerParams cp = GestureControllerParams{};
+			cp.lCOMport = serialComboLeft->GetSelectedText();
+			cp.rCOMport = serialComboLeft->GetSelectedText();
+			cp.lmodelPath = lmodelpath + modelComboLeft->GetSelectedText();
+			cp.rmodelPath = rmodelpath + modelComboRight->GetSelectedText();
+			std::variant<int, GestureControllerParams> controllerParam = cp;
+			std::visit(this->startCallback, controllerParam, tickerParam);
+		} else {
+			MusicalTickerParams tp = MusicalTickerParams{};
+			#ifdef _WIN32
+				tp.filename = musicpath + "\\" + tickerMusicFileCombo->GetSelectedText();
+			#endif
+			#ifdef linux
+				tp.filename = musicpath + "/" + tickerMusicFileCombo->GetSelectedText();
+			#endif
+			tp.lowFreq = tickerLowFreqSpinButton->GetValue();
+			tp.highFreq = tickerHighFreqSpinButton->GetValue();
+			tp.threshold = tickerThresholdScale->GetValue();
+			tp.analysisPeriod = std::chrono::milliseconds((int)tickerAnalysisSpinButton->GetValue());
+			tp.ignorePeriod = std::chrono::milliseconds((int)tickerIgnoreSpinButton->GetValue());
+			std::variant<int, MusicalTickerParams> tickerParam = tp;
+			GestureControllerParams cp = GestureControllerParams{};
+			cp.lCOMport = serialComboLeft->GetSelectedText();
+			cp.rCOMport = serialComboLeft->GetSelectedText();
+			cp.lmodelPath = lmodelpath + modelComboLeft->GetSelectedText();
+			cp.rmodelPath = rmodelpath + modelComboRight->GetSelectedText();
+			std::variant<int, GestureControllerParams> controllerParam = cp;
+			std::visit(this->startCallback, controllerParam, tickerParam);
+		}
 	}
 
-	void setStartCallback(std::function<void(int, std::string, std::string, std::variant<int, MusicalTickerParams>)> startCallback) {
+	void setStartCallback(std::function<void(std::variant<int, GestureControllerParams>, std::variant<int, MusicalTickerParams>)> startCallback) {
 		this->startCallback = startCallback;
 	}
 
@@ -358,12 +502,18 @@ public:
 
 private:
 	sfg::Box::Ptr box, glovesBox, periodicTickerBox, musicalTickerBox;
-	sfg::ComboBox::Ptr serialComboLeft, serialComboRight, controllerDropdown, tickerDropdown, tickerMusicFileCombo;
+	sfg::ComboBox::Ptr serialComboLeft, serialComboRight, controllerDropdown, tickerDropdown, tickerMusicFileCombo, modelComboLeft, modelComboRight;
 	sf::RectangleShape background;
 	sfg::SpinButton::Ptr tickerPeriodSpinButton, tickerLowFreqSpinButton, tickerHighFreqSpinButton, tickerAnalysisSpinButton, tickerIgnoreSpinButton;
 	sfg::Scale::Ptr tickerThresholdScale;
 	sfg::Label::Ptr tickerMusicThresholdValue;
-	std::function<void(int, std::string, std::string, std::variant<int, MusicalTickerParams>)> startCallback;
+	std::function<void(std::variant<int, GestureControllerParams>, std::variant<int, MusicalTickerParams>)> startCallback;
+	std::atomic_bool modelTraining = false;
+	NewModelTrainer* modelTrainer;
+	serialib* serial;
+	sfg::Desktop *desktop;
+	sf::RenderWindow *window;
+	std::thread m_thread;
 };
 
 #endif // MENU_HPP

@@ -18,8 +18,8 @@ target_link_libraries(NumericalControllerGameTest sfml-window sfml-graphics sfml
 target_include_directories(NumericalControllerGameTest PRIVATE external/SFML/include)
 add_custom_command(TARGET NumericalControllerGameTest POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_if_different ${PROJECT_SOURCE_DIR}/test/Roboto-Italic.ttf $<TARGET_FILE_DIR:NumericalControllerGameTest>)
 
-add_executable(MenuTest menuTest.cpp)
-target_link_libraries(MenuTest SFGUI sfml-audio sfml-window sfml-graphics sfml-system)
+makeDlibExec(MenuTest menuTest.cpp)
+target_link_libraries(MenuTest SFGUI sfml-audio sfml-window sfml-graphics sfml-system seriallib)
 target_include_directories(MenuTest PRIVATE external/SFML/include)
 addlibfftw(MenuTest)
 
@@ -55,6 +55,14 @@ if (WIN32)
 		add_custom_command(TARGET musicalTickerTest POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_if_different ${PROJECT_SOURCE_DIR}/external/SFML/extlibs/bin/x86/openal32.dll $<TARGET_FILE_DIR:beatDetectionTest>)
 	endif()
 endif()
+
+makeDlibExec(dlibTest dlibtest.cpp)
+
+makeDlibExec(gestureModelTest gestureModeltest.cpp)
+add_custom_command(TARGET gestureModelTest COMMAND ${CMAKE_COMMAND} -E copy_directory ${PROJECT_SOURCE_DIR}/test/gestureData $<TARGET_FILE_DIR:gestureModelTest>/gestureData)
+
+makeDlibExec(liveGestureTest liveGestureTest.cpp)
+target_link_libraries(liveGestureTest seriallib)
 
 add_executable(GameWithMenuTest GameWithMenuTest.cpp)
 target_link_libraries(GameWithMenuTest SFGUI sfml-audio sfml-window sfml-graphics sfml-system)
