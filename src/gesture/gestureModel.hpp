@@ -2,6 +2,9 @@
  * Helper functions to deal with training, saving, loading and testing of the multi-class gesture recognition model.
  */
 
+#if !defined(GestureModel_HPP)
+#define GestureModel_HPP
+
 #include <dlib/svm_threaded.h>
 #include <dlib/rand.h>
 #include "readGestureDataset.hpp"
@@ -73,3 +76,5 @@ float calculateAccuracy(df_t& trainer, std::vector<sample_type>& samples, std::v
 	}
 	return (float)correct / (float)samples.size();
 }
+
+#endif // GestureModel_HPP
