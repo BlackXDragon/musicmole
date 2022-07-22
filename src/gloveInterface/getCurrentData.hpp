@@ -33,10 +33,9 @@ std::vector<double> getCurrentData(serialib &serial) {
 
 	std::smatch match;
 
-	if (!std::regex_search(str, match, rgx)) {
-		std::cerr << "Error: invalid data received:" << std::endl;
-		std::cerr << str << std::endl;
-		exit(1);
+	while (!std::regex_search(str, match, rgx)) {
+		serial.readString(buffer, '\n', 256);
+		str = buffer;
 	}
 
 	std::vector<double> data;
