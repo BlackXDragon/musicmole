@@ -1,5 +1,6 @@
 #include "../src/game/game.hpp"
 #include "../src/controllers/NumericalController.hpp"
+#include "../src/controllers/GestureController.hpp"
 #include "../src/ticker/PeriodicTicker.hpp"
 #include "../src/ticker/MusicalTicker.hpp"
 #include "../src/UI/menu.hpp"
@@ -8,15 +9,11 @@ int MAX_FPS = 30;
 
 bool closeMenu = false;
 
-int controller_type = 0;
-std::string controller_param1, controller_param2;
-
+std::variant<int, GestureControllerParams> controller_params;
 std::variant<int, MusicalTickerParams> ticker_params;
 
-void startCallback(int c, std::string c1, std::string c2, std::variant<int, MusicalTickerParams> t) {
-	controller_type = c;
-	controller_param1 = c1;
-	controller_param2 = c2;
+void startCallback(std::variant<int, GestureControllerParams> c, std::variant<int, MusicalTickerParams> t) {
+	controller_params = c;
 	ticker_params = t;
 	closeMenu = true;
 }
@@ -30,13 +27,13 @@ void game_over_callback() {
 
 int main() {
 	sfg::SFGUI sfgui;
-	sf::RenderWindow window(sf::VideoMode::getFullscreenModes()[0], "SFML works!", sf::Style::Fullscreen);
+	sf::RenderWindow window(sf::VideoMode::getFullscreenModes()[0], "Game with menu test", sf::Style::Fullscreen);
 	auto windowSize = window.getSize();
 	window.setFramerateLimit(MAX_FPS);
 
 	sfg::Desktop desktop;
 
-	MenuWindow menu = MenuWindow(desktop);
+	MenuWindow menu = MenuWindow(desktop, window);
 	menu.updateSize(sf::Vector2f(window.getSize().x, window.getSize().y));
 	menu.setStartCallback(startCallback);
 
@@ -51,6 +48,7 @@ int main() {
 		while (window.isOpen() && !closeMenu) {
 			sf::Event event;
 			while (window.pollEvent(event)) {
+				menu.update(event);
 				desktop.HandleEvent(event);
 				if (event.type == sf::Event::Resized)
 					menu.updateSize(sf::Vector2f(event.size.width, event.size.height));
@@ -105,8 +103,42 @@ int main() {
 	std::unique_ptr<BaseController<int, int>> controller;
 	std::unique_ptr<BaseTicker> ticker;
 
-	if (controller_type == 0)
+	if (controller_params.index() == 0) {
 		controller = std::make_unique<NumericalController>(std::bind(&Game::whack, &game, std::placeholders::_1, std::placeholders::_2));
+	} else if (controller_params.index() == 1) {
+		GestureControllerParams p = std::get<GestureControllerParams>(controller_params);
+		serialib lserial, rserial;
+		// Try to open the serial ports.
+		char err;
+		try {
+			err = lserial.openDevice(p.lCOMport.c_str(), 9600);
+		} catch (std::exception& e) {
+			std::cout << "Error opening serial port: " << e.what() << std::endl;
+			return 1;
+		}
+
+		if (err != 1) {
+			std::cout << "Error opening serial port: " << err << std::endl;
+			return err;
+		}
+
+		try {
+			err = rserial.openDevice(p.rCOMport.c_str(), 9600);
+		} catch (std::exception& e) {
+			std::cout << "Error opening serial port: " << e.what() << std::endl;
+			return 1;
+		}
+
+		if (err != 1) {
+			std::cout << "Error opening serial port: " << err << std::endl;
+			return err;
+		}
+
+		df_t lmodel, rmodel;
+		loadGestureModel(lmodel, p.lmodelPath);
+		loadGestureModel(rmodel, p.rmodelPath);
+		controller = std::make_unique<GestureController>(lserial, lmodel, rserial, rmodel, std::bind(&Game::whack, &game, std::placeholders::_1, std::placeholders::_2));
+	}
 
 	if (ticker_params.index() == 0)
 		ticker = std::make_unique<PeriodicTicker>(std::get<int>(ticker_params) * 1000, std::bind(&Game::make_mole, &game));
