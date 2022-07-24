@@ -14,6 +14,8 @@
 #include <thread>
 #include <mutex>
 #include <SFML/Graphics.hpp>
+#include "Hole.hpp"
+#include "Mole.hpp"
 
 class Game {
 public:
@@ -42,6 +44,16 @@ public:
 		this->rd = std::mt19937(std::random_device()());
 		this->xdist = std::uniform_int_distribution<int>(0, x - 1);
 		this->ydist = std::uniform_int_distribution<int>(0, y - 1);
+		this->moleTex.loadFromMemory(Mole_png, Mole_png_len);//, sf::IntRect(0, 0, 300, 300));
+		this->holeTex.loadFromMemory(Hole_png, Hole_png_len);//, sf::IntRect(0, 0, 300, 300));
+		this->moleSprite.setTexture(moleTex);
+		this->holeSprite.setTexture(holeTex);
+		this->moleSprite.setScale(0.3, 0.3);
+		this->holeSprite.setScale(0.3, 0.3);
+		auto holeSize = holeSprite.getLocalBounds();
+		auto moleSize = moleSprite.getLocalBounds();
+		this->moleSprite.setOrigin(0.5 * moleSize.width, 0.5 * moleSize.height);
+		this->holeSprite.setOrigin(0.5 * holeSize.width, 0.5 * holeSize.height);
 	}
 
 	void reset() {
@@ -146,21 +158,19 @@ public:
 		window->clear(sf::Color(0xA67C5200)); // Fill screen with bg color
 
 		auto winSize = window->getSize();
-		sf::CircleShape hole(winSize.y / 9 - 20);
-		hole.setScale(2, 1);
-		auto holeSize = hole.getLocalBounds();
+		auto holeSize = holeSprite.getLocalBounds();
+		auto moleSize = moleSprite.getLocalBounds();
 		
 		// Draw the holes (with moles if there's a mole in the position)
 		for (int i = 0; i < x; i++) {
 			for (int j = 0; j < y; j++) {
+				holeSprite.setPosition(sf::Vector2f(i * winSize.x/3 + 0.3*holeSize.width/2, j * winSize.y/3 + 0.3*holeSize.height/2));
+				moleSprite.setPosition(sf::Vector2f(i * winSize.x/3 + 0.3*moleSize.width/2, j * winSize.y/3 + 0.3*moleSize.height/2));
 				if (board[i][j]) {
-					hole.setFillColor(sf::Color::Green);
+					window->draw(moleSprite);
 				} else {
-					hole.setFillColor(sf::Color::Black);
+					window->draw(holeSprite);
 				}
-				hole.setPosition(sf::Vector2f(i * winSize.x/3 + (winSize.x/3 - holeSize.width * 2)/2, j * winSize.y/3 + (winSize.y/3 - holeSize.height)/2));
-
-				window->draw(hole);
 			}
 		}
 	}
@@ -186,6 +196,8 @@ private:
 	std::vector<std::thread> m_threads;
 	std::vector<std::vector<bool>> terminate_remove_thread;
 	std::mutex trt_mutex = std::mutex();
+	sf::Texture moleTex, holeTex;
+	sf::Sprite moleSprite, holeSprite;
 	
 	void remove_mole(int x, int y) {
 		auto start = std::chrono::high_resolution_clock::now();
