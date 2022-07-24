@@ -74,3 +74,7 @@ target_link_libraries(GameWithMenuTest SFGUI sfml-audio sfml-window sfml-graphic
 target_include_directories(GameWithMenuTest PRIVATE external/SFML/include)
 addlibfftw(GameWithMenuTest)
 add_custom_command(TARGET GameWithMenuTest POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_if_different ${PROJECT_SOURCE_DIR}/test/Roboto-Italic.ttf $<TARGET_FILE_DIR:GameWithMenuTest>)
+
+add_executable(GameScreenTest gameScreenTest.cpp)
+target_link_libraries(GameScreenTest sfml-window sfml-graphics sfml-system)
+target_include_directories(GameScreenTest PRIVATE external/SFML/include)
