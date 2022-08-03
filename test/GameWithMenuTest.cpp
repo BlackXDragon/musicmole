@@ -101,40 +101,40 @@ int main() {
 	total.setPosition(sf::Vector2f(windowSize.x - textBounds.width - 10, 3.5*textBounds.height));
 	
 	std::unique_ptr<BaseController<int, int>> controller;
+	serialib lserial, rserial;
+	df_t lmodel, rmodel;
 	std::unique_ptr<BaseTicker> ticker;
 
 	if (controller_params.index() == 0) {
 		controller = std::make_unique<NumericalController>(std::bind(&Game::whack, &game, std::placeholders::_1, std::placeholders::_2));
 	} else if (controller_params.index() == 1) {
 		GestureControllerParams p = std::get<GestureControllerParams>(controller_params);
-		serialib lserial, rserial;
 		// Try to open the serial ports.
 		char err;
 		try {
 			err = lserial.openDevice(p.lCOMport.c_str(), 9600);
 		} catch (std::exception& e) {
-			std::cout << "Error opening serial port: " << e.what() << std::endl;
+			std::cout << "Error opening left serial port " << p.lCOMport << ": " << e.what() << std::endl;
 			return 1;
 		}
 
 		if (err != 1) {
-			std::cout << "Error opening serial port: " << err << std::endl;
+			std::cout << "Error opening left serial port " << p.lCOMport << ": " << (int)err << std::endl;
 			return err;
 		}
 
 		try {
 			err = rserial.openDevice(p.rCOMport.c_str(), 9600);
 		} catch (std::exception& e) {
-			std::cout << "Error opening serial port: " << e.what() << std::endl;
+			std::cout << "Error opening right serial port " << p.rCOMport << ": " << e.what() << std::endl;
 			return 1;
 		}
 
 		if (err != 1) {
-			std::cout << "Error opening serial port: " << err << std::endl;
+			std::cout << "Error opening right serial port " << p.rCOMport << ": " << (int)err << std::endl;
 			return err;
 		}
 
-		df_t lmodel, rmodel;
 		loadGestureModel(lmodel, p.lmodelPath);
 		loadGestureModel(rmodel, p.rmodelPath);
 		controller = std::make_unique<GestureController>(lserial, lmodel, rserial, rmodel, std::bind(&Game::whack, &game, std::placeholders::_1, std::placeholders::_2));
@@ -157,6 +157,8 @@ int main() {
 	try {
 		while (window.isOpen() && !end_game && ticker->isRunning()) {
 			sf::Event event;
+			if (controller_params.index() == 1)
+				controller->run(sf::Event());
 			while (window.pollEvent(event)) {
 				controller->run(event);
 				if (event.type == sf::Event::KeyPressed)
@@ -247,6 +249,11 @@ int main() {
 	std::cout << "Hit: " << game.get_n_whacked() << std::endl;
 	std::cout << "Missed: " << game.get_n_missed() << std::endl;
 	std::cout << "Total: " << game.get_n_total() << std::endl;
+
+	if (controller_params.index() == 1) {
+		lserial.closeDevice();
+		rserial.closeDevice();
+	}
 
 	return 0;
 }
