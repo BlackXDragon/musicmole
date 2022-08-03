@@ -48,7 +48,7 @@ int main(int argc, char* argv[]) {
 	}
 
 	try {
-		err = rserial.openDevice(argv[1], 9600);
+		err = rserial.openDevice(argv[2], 9600);
 	} catch (std::exception& e) {
 		std::cout << "Error opening serial port: " << e.what() << std::endl;
 		return 1;
@@ -70,13 +70,19 @@ int main(int argc, char* argv[]) {
 		std::cout << "Press enter when you're ready to start recording pose " << i << " for the left hand for 10 secs.\n";
 		std::cin >> c;
 		std::vector<std::vector<double>> d = recordPose(lserial);
-		ldata.push_back(std::vector<float>(d.begin(), d.end()));
+		for (auto &di: d) {
+			ldata.push_back(std::vector<float>(di.begin(), di.end()));
+			llabels.push_back(i);
+		}
 		std::cout << "Left pose " << i << " recorded.\n";
 		
 		std::cout << "Press enter when you're ready to start recording pose " << i << " for the right hand for 10 secs.\n";
 		std::cin >> c;
 		d = recordPose(rserial);
-		rdata.push_back(std::vector<float>(d.begin(), d.end()));
+		for (auto &di: d) {
+			rdata.push_back(std::vector<float>(di.begin(), di.end()));
+			rlabels.push_back(i);
+		}
 		std::cout << "Right pose " << i << " recorded.\n";
 	}
 
@@ -110,8 +116,8 @@ int main(int argc, char* argv[]) {
 
 	while (window.isOpen()) {
 		sf::Event event;
+		controller.run(event);
 		while (window.pollEvent(event)) {
-			controller.run(event);
 			if (event.type == sf::Event::Closed)
 				window.close();
 		}
