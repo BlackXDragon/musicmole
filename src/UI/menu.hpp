@@ -461,7 +461,7 @@ public:
 			std::variant<int, MusicalTickerParams> tickerParam = v;
 			GestureControllerParams cp = GestureControllerParams{};
 			cp.lCOMport = serialComboLeft->GetSelectedText();
-			cp.rCOMport = serialComboLeft->GetSelectedText();
+			cp.rCOMport = serialComboRight->GetSelectedText();
 			cp.lmodelPath = lmodelpath + modelComboLeft->GetSelectedText();
 			cp.rmodelPath = rmodelpath + modelComboRight->GetSelectedText();
 			std::variant<int, GestureControllerParams> controllerParam = cp;
@@ -482,7 +482,7 @@ public:
 			std::variant<int, MusicalTickerParams> tickerParam = tp;
 			GestureControllerParams cp = GestureControllerParams{};
 			cp.lCOMport = serialComboLeft->GetSelectedText();
-			cp.rCOMport = serialComboLeft->GetSelectedText();
+			cp.rCOMport = serialComboRight->GetSelectedText();
 			cp.lmodelPath = lmodelpath + modelComboLeft->GetSelectedText();
 			cp.rmodelPath = rmodelpath + modelComboRight->GetSelectedText();
 			std::variant<int, GestureControllerParams> controllerParam = cp;
