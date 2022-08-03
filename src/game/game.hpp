@@ -87,7 +87,7 @@ public:
 
 	void whack(int x, int y) {
 		x--; y--;
-		if (x == -1 && y == -1) { // Glove controller, no input
+		if (x == -1 || y == -1) { // Glove controller, no input
 			return;
 		}
 		if (board[x][y]) {
