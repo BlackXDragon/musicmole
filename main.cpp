@@ -80,7 +80,7 @@ int main() {
 	sf::Font font;
 	font.loadFromMemory(Roboto_Italic_ttf, Roboto_Italic_ttf_len);
 
-	sf::Text hit, missed, total;
+	sf::Text hit, missed, total, hitTime;
 	hit.setFont(font);
 	hit.setFillColor(sf::Color::White);
 	hit.setCharacterSize(24);
@@ -93,6 +93,10 @@ int main() {
 	total.setFillColor(sf::Color::White);
 	total.setCharacterSize(24);
 	total.setString("Total: 0");
+	hitTime.setFont(font);
+	hitTime.setFillColor(sf::Color::White);
+	hitTime.setCharacterSize(24);
+	hitTime.setString("Average Response Time: -");
 
 	auto textBounds = hit.getLocalBounds();
 	hit.setPosition(sf::Vector2f(windowSize.x - textBounds.width - 10, textBounds.height/2));
@@ -100,6 +104,8 @@ int main() {
 	missed.setPosition(sf::Vector2f(windowSize.x - textBounds.width - 10, 2*textBounds.height));
 	textBounds = total.getLocalBounds();
 	total.setPosition(sf::Vector2f(windowSize.x - textBounds.width - 10, 3.5*textBounds.height));
+	textBounds = hitTime.getLocalBounds();
+	hitTime.setPosition(sf::Vector2f(windowSize.x - textBounds.width - 10, 5*textBounds.height));
 	
 	std::unique_ptr<BaseController<int, int>> controller;
 	serialib lserial, rserial;
@@ -176,10 +182,11 @@ int main() {
 					window.close();
 			}
 
-			char h[5] = "", m[5] = "", t[5] = "";
+			char h[5] = "", m[5] = "", t[5] = "", ht[15] = "";
 			itoa(game.get_n_whacked(), h, 10);
 			itoa(game.get_n_missed(), m, 10);
 			itoa(game.get_n_total(), t, 10);
+			sprintf(ht, "%0.2fms", game.get_avg_whack_time());
 			
 			std::string hitString = "Hit: ";
 			hitString += h;
@@ -187,22 +194,29 @@ int main() {
 			missedString += m;
 			std::string totalString = "Total: ";
 			totalString += t;
+			std::string hitTimeString = "Average Response Time: ";
+			hitTimeString += ht;
 
 			hit.setString(hitString);
 			missed.setString(missedString);
-			total.setString(totalString);textBounds = hit.getLocalBounds();
+			total.setString(totalString);
+			hitTime.setString(hitTimeString);
 			
+			textBounds = hit.getLocalBounds();
 			hit.setPosition(sf::Vector2f(windowSize.x - textBounds.width - 10, textBounds.height/2));
 			textBounds = missed.getLocalBounds();
 			missed.setPosition(sf::Vector2f(windowSize.x - textBounds.width - 10, 2*textBounds.height));
 			textBounds = total.getLocalBounds();
 			total.setPosition(sf::Vector2f(windowSize.x - textBounds.width - 10, 3.5*textBounds.height));
+			textBounds = hitTime.getLocalBounds();
+			hitTime.setPosition(sf::Vector2f(windowSize.x - textBounds.width - 10, 5*textBounds.height));
 
 			window.clear();
 			game.render(&window);
 			window.draw(hit);
 			window.draw(missed);
 			window.draw(total);
+			window.draw(hitTime);
 			window.display();
 		}
 	} catch (std::exception e) {
@@ -239,6 +253,7 @@ int main() {
 				window.draw(hit);
 				window.draw(missed);
 				window.draw(total);
+				window.draw(hitTime);
 				window.display();
 			}
 		}
@@ -250,6 +265,7 @@ int main() {
 	std::cout << "Hit: " << game.get_n_whacked() << std::endl;
 	std::cout << "Missed: " << game.get_n_missed() << std::endl;
 	std::cout << "Total: " << game.get_n_total() << std::endl;
+	std::cout << "Average response time: " << game.get_avg_whack_time() << std::endl;
 
 	if (controller_params.index() == 1) {
 		lserial.closeDevice();
