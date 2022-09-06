@@ -1,3 +1,10 @@
+/*
+ * Filename: Mole.hpp
+ * Author: Malolan Venkataraghavan
+ * 
+ * Array containing the data for the mole sprite
+ */
+
 #if !defined(Mole_HPP)
 #define Mole_HPP
 

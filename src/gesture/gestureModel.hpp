@@ -1,5 +1,8 @@
 /*
- * Helper functions to deal with training, saving, loading and testing of the multi-class gesture recognition model.
+ * Filename: gestureModel.hpp
+ * Author: Malolan Venkataraghavan
+ * 
+ * Functions forr training, saving, loading and testing the multi-class gesture recognition model.
  */
 
 #if !defined(GestureModel_HPP)
@@ -17,7 +20,6 @@ typedef dlib::multiclass_linear_decision_function<dlib::linear_kernel<sample_typ
 // Function to create the gesture recognition model.
 trainer_t createGestureModel() {
 	trainer_t trainer;
-	// trainer.set_kernel(dlib::radial_basis_kernel<sample_type>(0.1));
 	trainer.set_c(1);
 	trainer.set_epsilon(0.1);
 	return trainer;
@@ -49,9 +51,7 @@ std::vector<sample_type> convertToSampleTypes(std::vector<std::vector<float>> da
 df_t trainGestureModel(trainer_t& trainer, std::vector<sample_type>& samples, std::vector<float>& labels) {
 	dlib::randomize_samples(samples, labels);
 	trainer.set_max_iterations(1000);
-	// trainer.set_epsilon_convergence(0.001);
 	trainer.set_c(1);
-	// trainer.set_kernel(dlib::radial_basis_kernel<sample_type>(0.1));
 	trainer.set_epsilon(0.1);
 	return trainer.train(samples, labels);
 }

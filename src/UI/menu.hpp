@@ -1,3 +1,10 @@
+/*
+ * Filename: menu.hpp
+ * Author: Malolan Venkataraghavan
+ * 
+ * Class for displaying a menu screen to select the controller and ticker parameters before starting the game.
+ */
+
 #if !defined(MENU_HPP)
 #define MENU_HPP
 
@@ -14,51 +21,68 @@
 #include <SFML/Graphics.hpp>
 #include <serialib.h>
 
+// Create a short alias for the filesystem module
 namespace fs = std::filesystem;
 
 #ifdef _WIN32
+	// Variables for paths to the home/user folder, and folders to store the music and gesture model files on Windows
 	std::string homepath = std::string(getenv("HOMEDRIVE")) + std::string(getenv("HOMEPATH"));
 	std::string musicpath = homepath + "\\Documents\\musicmole\\Music";
 	std::string lmodelpath = homepath + "\\Documents\\musicmole\\Models\\Left\\";
 	std::string rmodelpath = homepath + "\\Documents\\musicmole\\Models\\Right\\";
 #endif
 #ifdef linux
+	// Variables for paths to the home/user folder, and folders to store the music and gesture model files on Linux
 	std::string homepath = std::string(getenv("HOME"));
 	std::string musicpath = homepath + "/musicmole/Music";
 	std::string lmodelpath = homepath + "/musicmole/Models/Left/";
 	std::string rmodelpath = homepath + "/musicmole/Models/Right/";
 #endif
 
+// Struct for storing and passing the required variables for a Musical Ticker
 typedef struct {
 	std::string filename;
 	double lowFreq, highFreq, threshold;
 	std::chrono::microseconds analysisPeriod, ignorePeriod;
 } MusicalTickerParams;
 
+// Struct for storing and passing the required variables for a Gesture Controller
 typedef struct {
 	std::string lCOMport, lmodelPath;
 	std::string rCOMport, rmodelPath;
 } GestureControllerParams;
 
+// MenuWindow class that shows the menu for selecting controller and ticker params and handles training new gesture models
 class MenuWindow {
 public:
+	/// @brief The constructor constructs all the necessary GUI elements and sets callback functions and default values
+	/// @param desktop The SFGUI desktop object
+	/// @param window The SFML RenderWindow object
 	MenuWindow(sfg::Desktop& desktop, sf::RenderWindow& window) {
 		this->desktop = &desktop;
 		this->window = &window;
+
+		// Set the brown background for the menu screen
 		background = sf::RectangleShape(sf::Vector2f(600, 600));
 		background.setFillColor(sf::Color(0xA67C52FF));
 		
+		// Create the whole container boc and set size and position
 		box = sfg::Box::Create(sfg::Box::Orientation::VERTICAL, 5.f);
 		box->SetRequisition(sf::Vector2f(600, 600));
 		box->SetPosition(sf::Vector2f(200, 200));
 
+		// Add the title label
 		auto label = sfg::Label::Create("Music Mole Settings");
-		desktop.GetEngine().SetProperty("Label", "FontSize", 24);
 		box->Pack(label);
 
+		// Set the font size of labels
+		desktop.GetEngine().SetProperty("Label", "FontSize", 24);
+
+		// Create and add a separator
 		auto line = sfg::Separator::Create(sfg::Separator::Orientation::HORIZONTAL);
 		box->Pack(line);
 		
+		// Controller settings section
 		auto controllerLabel = sfg::Label::Create("Controller Settings");
 		box->Pack(controllerLabel);
 
@@ -66,11 +90,13 @@ public:
 		
 		auto controllerModeLabel = sfg::Label::Create("Contoller mode:");
 		controllerBox->Pack(controllerModeLabel);
-		
+
+		// Combo Box for selecting the mode of controller: Numerical(Keypad) or Glove(Hand Gesture)		
 		controllerDropdown = sfg::ComboBox::Create();
 		controllerDropdown->AppendItem("Numerical");
 		controllerDropdown->AppendItem("Glove");
 
+		// Set the callback function for changing the combo box option
 		controllerDropdown->GetSignal(sfg::ComboBox::OnSelect).Connect(
 			std::bind(&MenuWindow::onControllerDropdownChange, this)
 		);
@@ -79,8 +105,10 @@ public:
 
 		box->Pack(controllerBox);
 
+		// Glove controller settings section
 		glovesBox = sfg::Box::Create(sfg::Box::Orientation::HORIZONTAL, 5.f);
-		
+
+		// Split into two halves for the left and right glove		
 		auto glovesBoxLeft = sfg::Box::Create(sfg::Box::Orientation::VERTICAL, 5.f);
 		auto glovesBoxRight = sfg::Box::Create(sfg::Box::Orientation::VERTICAL, 5.f);
 
@@ -90,6 +118,7 @@ public:
 		glovesBoxLeft->Pack(glovesLabelLeft);
 		glovesBoxRight->Pack(glovesLabelRight);
 
+		// Glove Serial Port section
 		auto serialBoxLeft = sfg::Box::Create(sfg::Box::Orientation::HORIZONTAL, 5.f);
 		auto serialBoxRight = sfg::Box::Create(sfg::Box::Orientation::HORIZONTAL, 5.f);
 
@@ -108,12 +137,12 @@ public:
 		auto serialButtonLeft = sfg::Button::Create("Refresh");
 		auto serialButtonRight = sfg::Button::Create("Refresh");
 
-		serialButtonLeft->GetSignal(sfg::Button::OnLeftClick).Connect(
-			std::bind(&MenuWindow::refreshCombo, this, serialComboLeft)
+		serialButtonLeft->GetSignal(sfg::Button::OnLeftClick).Connect(the serial port combo boxes
+			std::bind(&MenuWindow::refreshSerialCombo, this, serialComboLeft)
 		);
 
-		serialButtonRight->GetSignal(sfg::Button::OnLeftClick).Connect(
-			std::bind(&MenuWindow::refreshCombo, this, serialComboRight)
+		serialButtonRight->GetSignal(sfg::Button::OnLeftClick).Connect(the serial port combo boxes
+			std::bind(&MenuWindow::refreshSerialCombo, this, serialComboRight)
 		);
 
 		serialBoxLeft->Pack(serialButtonLeft);
@@ -122,6 +151,7 @@ public:
 		glovesBoxLeft->Pack(serialBoxLeft);
 		glovesBoxRight->Pack(serialBoxRight);
 		
+		// Glove controller gesture recognition model section
 		auto modelBoxLeft = sfg::Box::Create(sfg::Box::Orientation::HORIZONTAL, 5.f);
 		auto modelBoxRight = sfg::Box::Create(sfg::Box::Orientation::HORIZONTAL, 5.f);
 
@@ -141,11 +171,11 @@ public:
 		auto modelRefreshButtonRight = sfg::Button::Create("Refresh");
 
 		modelRefreshButtonLeft->GetSignal(sfg::Button::OnLeftClick).Connect(
-			std::bind(&MenuWindow::refreshModel, this, modelComboLeft, true)
+			std::bind(&MenuWindow::refreshModelCombo, this, modelComboLeft, true)
 		);
 
 		modelRefreshButtonRight->GetSignal(sfg::Button::OnLeftClick).Connect(
-			std::bind(&MenuWindow::refreshModel, this, modelComboRight, false)
+			std::bind(&MenuWindow::refreshModelCombo, this, modelComboRight, false)
 		);
 
 		modelBoxLeft->Pack(modelRefreshButtonLeft);
@@ -187,11 +217,13 @@ public:
 
 		box->Pack(glovesBox);
 
-		// Ticker Settings
+		// Numerical controller does not need a section since it has no settings
 
+		// Separator to separate controller and ticker settings sections
 		line = sfg::Separator::Create(sfg::Separator::Orientation::HORIZONTAL);
 		box->Pack(line);
 
+		// Ticker Settings section
 		auto tickerLabel = sfg::Label::Create("Ticker Settings");
 		box->Pack(tickerLabel);
 
@@ -200,6 +232,7 @@ public:
 		auto tickerModeLabel = sfg::Label::Create("Ticker mode:");
 		tickerBox->Pack(tickerModeLabel);
 		
+		// Combo Box to select ticker mode
 		tickerDropdown = sfg::ComboBox::Create();
 		tickerDropdown->AppendItem("Periodic");
 		tickerDropdown->AppendItem("Musical");
@@ -215,12 +248,14 @@ public:
 		periodicTickerBox = sfg::Box::Create(sfg::Box::Orientation::HORIZONTAL, 5.f);
 		musicalTickerBox = sfg::Box::Create(sfg::Box::Orientation::VERTICAL, 5.f);
 
+		// Periodic ticker section
 		auto tickerPeriodLabel = sfg::Label::Create("Ticker Period (s):");
 		periodicTickerBox->Pack(tickerPeriodLabel);
 		
 		tickerPeriodSpinButton = sfg::SpinButton::Create(1, 15, 1);
 		periodicTickerBox->Pack(tickerPeriodSpinButton);
 
+		// Musical ticker section
 		auto tickerMusicFileBox = sfg::Box::Create(sfg::Box::Orientation::HORIZONTAL, 5.f);
 
 		auto tickerMusicFileLabel = sfg::Label::Create("Music:");
@@ -228,7 +263,7 @@ public:
 		auto tickerMusicFileButton = sfg::Button::Create("Refresh");
 
 		tickerMusicFileButton->GetSignal(sfg::Button::OnLeftClick).Connect(
-			std::bind(&MenuWindow::refreshMusic, this, tickerMusicFileCombo)
+			std::bind(&MenuWindow::refreshMusicCombo, this, tickerMusicFileCombo)
 		);
 
 		tickerMusicFileBox->Pack(tickerMusicFileLabel);
@@ -289,6 +324,7 @@ public:
 		box->Pack(periodicTickerBox);
 		box->Pack(musicalTickerBox);
 
+		// Start button to start the game
 		auto startButton = sfg::Button::Create("Start!");
 		box->Pack(startButton);
 
@@ -296,19 +332,20 @@ public:
 			std::bind(&MenuWindow::startGame, this)
 		);
 
-		// Reset
+		// Reset to default values
 		controllerDropdown->SelectItem(0);
 		onControllerDropdownChange();
 		tickerDropdown->SelectItem(0);
 		onTickerDropdownChange();
-		refreshMusic(tickerMusicFileCombo);
-		refreshModel(modelComboLeft, true);
-		refreshModel(modelComboRight, false);
+		refreshMusicCombo(tickerMusicFileCombo);
+		refreshModelCombo(modelComboLeft, true);
+		refreshModelCombo(modelComboRight, false);
 	}
 
 	~MenuWindow() {}
 
-	void refreshCombo(sfg::ComboBox::Ptr combo) {
+	// Function to refresh the serial port combo boxes
+	void refreshSerialCombo(sfg::ComboBox::Ptr combo) {
 		while (combo->GetItemCount() > 0) {
 			combo->RemoveItem(0);
 		}
@@ -318,7 +355,8 @@ public:
 		}
 	}
 
-	void refreshModel(sfg::ComboBox::Ptr combo, bool left = true) {
+	// Function to refresh the gesture model combo boxes
+	void refreshModelCombo(sfg::ComboBox::Ptr combo, bool left = true) {
 		while (combo->GetItemCount() > 0) {
 			combo->RemoveItem(0);
 		}
@@ -330,6 +368,7 @@ public:
 		}
 	}
 
+	// Function to delete the gesture model selected in the combo boxes
 	void deleteModel(sfg::ComboBox::Ptr combo, bool left = true) {
 		std::string modelpath = (left) ? lmodelpath : rmodelpath;
 		if (!fs::is_directory(fs::path(modelpath)))
@@ -340,11 +379,12 @@ public:
 		if (!fs::exists(fs::path(modelpath + combo->GetSelectedText())))
 			return;
 		fs::remove(fs::path(modelpath + model));
-		refreshModel(modelComboLeft, true);
-		refreshModel(modelComboRight, false);
+		refreshModelCombo(modelComboLeft, true);
+		refreshModelCombo(modelComboRight, false);
 	}
 
-	void refreshMusic(sfg::ComboBox::Ptr combo) {
+	// Function to refresh the music files combo box
+	void refreshMusicCombo(sfg::ComboBox::Ptr combo) {
 		while (combo->GetItemCount() > 0) {
 			combo->RemoveItem(0);
 		}
@@ -355,6 +395,7 @@ public:
 		}
 	}
 	
+	// Function to update the size of the menu window given the size of the renderwindow
 	void updateSize(sf::Vector2f size) {
 		float x = size.x/10;
 		float y = size.y/10;
@@ -367,6 +408,7 @@ public:
 		background.setSize(sf::Vector2f(w+16, h+16));
 	}
 
+	// Function to draw the menu window on the renderwindow
 	void Draw(sf::RenderWindow& window) {
 		if (modelTraining) {
 			box->Show(false);
@@ -377,12 +419,14 @@ public:
 		}
 	}
 
+	// Function to provide event update functionality to the new model trainer popup window
 	void update(sf::Event& event) {
 		if (modelTraining) {
 			modelTrainer->update(event);
 		}
 	}
 
+	// Function for showing a new model trainer popup when the button is clicked
 	void newModelButtonCallback(bool left = true) {
 		std::string port;
 		if (left)
@@ -402,23 +446,27 @@ public:
 		this->modelTraining = true;
 	}
 
+	// Function to be called when the new model trainer has finished its job
 	void modelTrainedCallback() {
 		modelTraining = false;
 		serial->closeDevice();
-		refreshModel(modelComboLeft, true);
-		refreshModel(modelComboRight, false);
+		refreshModelCombo(modelComboLeft, true);
+		refreshModelCombo(modelComboRight, false);
 	}
 
+	// Function to return the Menu Window SFGUI box
 	sfg::Widget::Ptr getWindow() {
 		return box;
 	}
 
+	// Callback function for when the controller dropdown is changed
 	void onControllerDropdownChange() {
 		glovesBox->Show(true);
 		if (this->controllerDropdown->GetSelectedItem() == 0)
 			glovesBox->Show(false);
 	}
 
+	// Callback function for when the ticker dropdown is changed
 	void onTickerDropdownChange() {
 		switch (this->tickerDropdown->GetSelectedItem()) {
 			case 0:
@@ -432,6 +480,7 @@ public:
 		}
 	}
 
+	// Callback function for when the player presses the start game button
 	void startGame() {
 		int c = this->controllerDropdown->GetSelectedItem();
 		int t = this->tickerDropdown->GetSelectedItem();
@@ -490,10 +539,12 @@ public:
 		}
 	}
 
+	// To set the callback function to be called passing the params chosen to the main loop
 	void setStartCallback(std::function<void(std::variant<int, GestureControllerParams>, std::variant<int, MusicalTickerParams>)> startCallback) {
 		this->startCallback = startCallback;
 	}
 
+	// Function to update the label displaying the threshold value for the musical ticker
 	void updateThresholdValue() {
 		char v[5];
 		snprintf(v, 5, "%.3f", this->tickerThresholdScale->GetValue());

@@ -1,3 +1,10 @@
+/*
+ * Filename: Hole.hpp
+ * Author: Malolan Venkataraghavan
+ * 
+ * Array containing the data for the hole sprite
+ */
+
 #if !defined(Hole_HPP)
 #define Hole_HPP
 

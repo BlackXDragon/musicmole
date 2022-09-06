@@ -1,5 +1,8 @@
 /*
- * Functions to read gesture datasets (stored as .csv files in a single folder) as vector of vectors of floats and the categories as a vector of ints.
+ * Filename: readGestureDataset.hpp
+ * Author: Malolan Venkataraghavan
+ * 
+ * Function to read gesture datasets (stored as .csv files in a single folder) as vector of vectors of floats and the categories as a vector of ints.
  */
 
 #if !defined(READ_GESTURE_DATASET_HPP)
